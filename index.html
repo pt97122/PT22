@@ -753,38 +753,40 @@ async function apiFetch(params,timeout=15000){
 // ── FETCH PRICE ──
 async function fetchPrice(code){
   if(IS_NETLIFY){
-    // Netlify: 用 TWSE proxy
+    // Vercel: 透過 proxy 呼叫 FinMind
+    var e2=new Date(),s2=new Date();s2.setDate(s2.getDate()-100);
+    var fmt2=function(d){return d.toISOString().split('T')[0];};
     try{
       var res=await fetch('/api/proxy',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({type:'price',code:code})
+        body:JSON.stringify({type:'finmind',params:{dataset:'TaiwanStockPrice',data_id:code,start_date:fmt2(s2),end_date:fmt2(e2)}})
       });
       var j=await res.json();
       if(!j||j.status!==200||!j.data||j.data.length<5) return null;
-      var rows=j.data;
+      var rows=j.data.sort(function(a,b){return a.date.localeCompare(b.date);});
       var cl=rows.map(function(r){return r.close;}).filter(function(v){return v>0;});
-      var vl=rows.map(function(r){return r.volume;}).filter(function(v){return v!=null;});
+      var vl=rows.map(function(r){return r.Trading_Volume;}).filter(function(v){return v!=null;});
       if(cl.length<5) return null;
       var last=rows[rows.length-1],prev=rows[rows.length-2];
       var ma=function(arr,n){if(arr.length<n)return null;return arr.slice(-n).reduce(function(s,v){return s+v;},0)/n;};
       var avgVol=vl.length>5?vl.slice(-6,-1).reduce(function(s,v){return s+v;},0)/5:0;
       var ma5=ma(cl,5),ma10=ma(cl,10),ma20=ma(cl,20),ma60=ma(cl,Math.min(60,cl.length)),wma20=ma(cl,100);
-      var bbUpper=null,bbLower=null;
-      if(ma20&&cl.length>=20){var sl=cl.slice(-20),std=Math.sqrt(sl.reduce(function(s,v){return s+(v-ma20)*(v-ma20);},0)/20);bbUpper=ma20+2*std;bbLower=ma20-2*std;}
+      var bbUpper=null;
+      if(ma20&&cl.length>=20){var sl2=cl.slice(-20),std2=Math.sqrt(sl2.reduce(function(s,v){return s+(v-ma20)*(v-ma20);},0)/20);bbUpper=ma20+2*std2;}
       var kd=calcKD(rows.slice(-30));
-      var hi=rows.map(function(r){return r.high;});
+      var hi=rows.map(function(r){return r.max;});
       var high20=hi.length>=20?Math.max.apply(null,hi.slice(-20)):null;
       return{
-        price:last.close,open:last.open,high:last.high,low:last.low,
-        vol:last.volume,prevClose:prev?prev.close:last.close,date:last.date,
+        price:last.close,open:last.open,high:last.max,low:last.min,
+        vol:last.Trading_Volume,prevClose:prev?prev.close:last.close,date:last.date,
         ma5:ma5,ma10:ma10,ma20:ma20,ma60:ma60,wma20:wma20,
         rsi14:calcRSI(cl,14),macdState:calcMACD(cl).macdState,
-        bbUpper:bbUpper,bbLower:bbLower,kd:calcKD(rows.slice(-30)),
-        high20:high20,breakout20:!!(high20&&last.high>=high20*0.99),
+        bbUpper:bbUpper,bbLower:null,kd:calcKD(rows.slice(-30)),
+        high20:high20,breakout20:!!(high20&&last.max>=high20*0.99),
         convergence:!!(ma5&&ma10&&ma20&&Math.abs(ma5-ma20)/ma20<0.02),
         bottom:cl.length>=4&&cl[cl.length-1]>cl[cl.length-2]&&cl[cl.length-2]>cl[cl.length-3]&&cl[cl.length-3]>cl[cl.length-4],
-        volRatio:avgVol>0?last.volume/avgVol:1,closes:cl,highs:hi
+        volRatio:avgVol>0?last.Trading_Volume/avgVol:1,closes:cl,highs:hi
       };
     }catch(e){return null;}
   } else {
@@ -824,15 +826,37 @@ async function fetchPrice(code){
 async function fetchChip(code){
   var md=MODES[mode];
   if(IS_NETLIFY){
+    // Vercel: 透過 proxy 呼叫 FinMind 籌碼
+    var ed=new Date(),sd=new Date();sd.setDate(sd.getDate()-20);
+    var fmt3=function(d){return d.toISOString().split('T')[0];};
     try{
-      var res=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chip',code:code})});
-      var chip=await res.json();
-      var res2=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'margin',code:code})});
-      var margin=await res2.json();
-      var fT=chip&&chip.foreign!=null?chip.foreign:0;
-      var iT=chip&&chip.trust!=null?chip.trust:0;
-      var dT=chip&&chip.dealer!=null?chip.dealer:0;
-      return{foreignNet:chip&&chip.foreign!=null?(chip.foreign>0):null,itNet:chip&&chip.trust!=null?(chip.trust>0):null,shortDown:margin&&margin.shortBalance!=null?(margin.shortBalance<1000):null,marginUp:margin&&margin.marginBalance!=null?(margin.marginBalance>5000):null,foreignTotal:fT,itTotal:iT,dealerTotal:dT};
+      var r1=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'finmind',params:{dataset:'TaiwanStockInstitutionalInvestorsBuySell',data_id:code,start_date:fmt3(sd),end_date:fmt3(ed)}})});
+      var j1=await r1.json();
+      var rows1=j1&&j1.status===200?j1.data:[];
+      var fT=0,iT=0,dT=0,foreignNet=null,itNet=null;
+      if(rows1&&rows1.length){
+        var sorted1=rows1.sort(function(a,b){return a.date.localeCompare(b.date);});
+        var f1=sorted1.filter(function(r){return r.name==='外陸資買賣超股數(不含外資自營商)';});
+        var it1=sorted1.filter(function(r){return r.name==='投信買賣超股數';});
+        var dl1=sorted1.filter(function(r){return r.name==='自營商買賣超股數';});
+        var lf=f1.slice(-md.chipDays),li=it1.slice(-md.chipDays);
+        foreignNet=lf.length>=md.chipDays?lf.every(function(r){return(r.buy-r.sell)>0;}):null;
+        itNet=li.length>=md.chipDays?li.every(function(r){return(r.buy-r.sell)>0;}):null;
+        fT=f1.slice(-5).reduce(function(s,r){return s+(r.buy-r.sell);},0);
+        iT=it1.slice(-5).reduce(function(s,r){return s+(r.buy-r.sell);},0);
+        dT=dl1.slice(-5).reduce(function(s,r){return s+(r.buy-r.sell);},0);
+      }
+      var r2=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'finmind',params:{dataset:'TaiwanStockMarginPurchaseShortSale',data_id:code,start_date:fmt3(sd),end_date:fmt3(ed)}})});
+      var j2=await r2.json();
+      var rows2=j2&&j2.status===200?j2.data:[];
+      var shortDown=null,marginUp=null;
+      if(rows2&&rows2.length){
+        var ms=rows2.sort(function(a,b){return a.date.localeCompare(b.date);}).slice(-5);
+        if(ms.length>=2){shortDown=ms[ms.length-1].ShortSaleBalanceVolume<ms[0].ShortSaleBalanceVolume;marginUp=ms[ms.length-1].MarginPurchaseBalanceVolume>ms[0].MarginPurchaseBalanceVolume;}
+      }
+      return{foreignNet:foreignNet,itNet:itNet,shortDown:shortDown,marginUp:marginUp,foreignTotal:fT,itTotal:iT,dealerTotal:dT};
     }catch(e){return{foreignNet:null,itNet:null,shortDown:null,marginUp:null,foreignTotal:0,itTotal:0,dealerTotal:0};}
   } else {
     // 本地: FinMind
@@ -865,17 +889,21 @@ async function fetchChip(code){
 
 async function fetchRevenue(code){
   if(IS_NETLIFY){
+    // Vercel: 透過 proxy 呼叫 FinMind 月營收
+    var er=new Date(),sr=new Date();sr.setDate(sr.getDate()-120);
+    var fmt4=function(d){return d.toISOString().split('T')[0];};
     try{
-      var res=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'revenue',code:code})});
-      var j=await res.json();
-      if(!j||j.status!==200||!j.data||!j.data.length) return{yoy:null,mom:null,consecutive:0,trend:null};
-      var rows=j.data.sort(function(a,b){return a.date.localeCompare(b.date);});
+      var rr=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'finmind',params:{dataset:'TaiwanStockMonthRevenue',data_id:code,start_date:fmt4(sr),end_date:fmt4(er)}})});
+      var jr=await rr.json();
+      if(!jr||jr.status!==200||!jr.data||!jr.data.length) return{yoy:null,mom:null,consecutive:0,trend:null};
+      var rows=jr.data.sort(function(a,b){return a.date.localeCompare(b.date);});
       var last=rows[rows.length-1],prev=rows[rows.length-2];
-      if(!last) return{yoy:null,mom:null,consecutive:0,trend:null};
       var mom=prev&&prev.revenue>0?((last.revenue-prev.revenue)/prev.revenue*100):null;
       var consec=0;
       for(var i=rows.length-1;i>0;i--){if(rows[i].revenue>rows[i-1].revenue)consec++;else break;}
-      return{yoy:last.yoy||null,mom:mom,consecutive:consec,trend:rows.length>=3&&rows[rows.length-1].revenue>rows[rows.length-2].revenue&&rows[rows.length-2].revenue>rows[rows.length-3].revenue};
+      return{yoy:last.revenue_year_over_year||null,mom:mom,consecutive:consec,
+        trend:rows.length>=3&&rows[rows.length-1].revenue>rows[rows.length-2].revenue&&rows[rows.length-2].revenue>rows[rows.length-3].revenue};
     }catch(e){return{yoy:null,mom:null,consecutive:0,trend:null};}
   } else {
     // 本地: FinMind
@@ -1718,6 +1746,35 @@ function buildCtx(){
     return`${d.stock.name}(${d.stock.code}):收${d.price?d.price.toFixed(1):'–'} 漲跌${(((d.price-d.prevClose)/d.prevClose)*100).toFixed(2)}% 訊號=${sig}${strong?'(強)':''} 技術=${techScore}/8 籌碼=${chipScore}/5 基本=${fundScore}/3 型態=${patScore}/3 風險=${riskScore}/10 週期共振=${cycleScore}/3 外資5日=${fmtN(d.chip && d.chip.foreignTotal)} 投信5日=${fmtN(d.chip && d.chip.itTotal)} YoY=${d.rev && d.rev.yoy!=null?d.rev.yoy.toFixed(1)+'%':'–'} MoM=${d.rev && d.rev.mom!=null?(d.rev.mom>0?'+':'')+d.rev.mom.toFixed(1)+'%':'–'}`;
   }).join('\n');
   return`【PT.22 v5｜${md.name}模式｜短線止損-${md.sStop}%｜短線目標+${md.sTgt}%｜波段目標+${md.wTgt}%】\n\n${det}`;
+}
+
+function showThinking(show){
+  var el=document.getElementById('aiThinking');
+  var el2=document.getElementById('aiContent');
+  if(el) el.style.display=show?'flex':'none';
+  if(el2) el2.style.display=show?'none':'block';
+}
+
+function showResult(text){
+  var el=document.getElementById('aiContent');
+  var el2=document.getElementById('aiThinking');
+  if(el2) el2.style.display='none';
+  if(el){
+    el.style.display='block';
+    el.innerHTML=text.replace(/\n/g,'<br>');
+  }
+}
+
+async function callAI(prompt){
+  try{
+    var res=await fetch('/api/proxy',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'claude',prompt:prompt})
+    });
+    var data=await res.json();
+    return data&&data.content&&data.content[0]?data.content[0].text:'分析失敗';
+  }catch(e){return '⚠️ AI連線失敗。';}
 }
 
 function copyAnalysis(){
