@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0044)file:///C:/Users/user/Downloads/index_4.html -->
-<html lang="zh-TW"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PT.22 v5</title>
-<link href="./PT.22 v5_files/css2" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#010509;--s1:#060d14;--s2:#0a1520;--s3:#0f1e2e;
@@ -371,12 +371,12 @@ mono{font-family:'JetBrains Mono',monospace;}
     <div class="live"></div>
   </div>
   <div class="topbar-center">
-    <span id="clock">13:01:50</span>
-    <span id="mktBadge" class="mkt-badge mkt-open">盤中</span>
+    <span id="clock">--:--:--</span>
+    <span id="mktBadge" class="mkt-badge mkt-closed">休市</span>
   </div>
   <div class="topbar-right">
-    <button class="tbtn tbtn-p" id="deepBtn" onclick="runDeep()" disabled=""><span id="deepIcon">◈</span> 深度</button>
-    <button class="tbtn tbtn-b" id="refreshBtn" onclick="refreshAll()" disabled=""><span id="ricon" class="spin">↻</span> 刷新</button>
+    <button class="tbtn tbtn-p" id="deepBtn" onclick="runDeep()" disabled><span id="deepIcon">◈</span> 深度</button>
+    <button class="tbtn tbtn-b" id="refreshBtn" onclick="refreshAll()"><span id="ricon">↻</span> 刷新</button>
   </div>
 </div>
 
@@ -386,97 +386,57 @@ mono{font-family:'JetBrains Mono',monospace;}
   <div class="mode-bar">
     <div class="mode-label">市場模式</div>
     <div class="mode-btns">
-      <div class="mbtn mbtn-bull active" id="mbull" onclick="setMode(&#39;bull&#39;)">🚀 多頭</div>
-      <div class="mbtn mbtn-neut" id="mneut" onclick="setMode(&#39;neutral&#39;)">⚖️ 震盪</div>
-      <div class="mbtn mbtn-bear" id="mbear" onclick="setMode(&#39;bear&#39;)">🛡️ 空頭</div>
+      <div class="mbtn mbtn-bull active" id="mbull" onclick="setMode('bull')">🚀 多頭</div>
+      <div class="mbtn mbtn-neut" id="mneut" onclick="setMode('neutral')">⚖️ 震盪</div>
+      <div class="mbtn mbtn-bear" id="mbear" onclick="setMode('bear')">🛡️ 空頭</div>
     </div>
-    <div class="mode-params" id="modeParams"><div class="mp"><span class="mp-l">短線</span><span class="mp-v" style="color:var(--g)">$400K +20%</span></div><div class="mp"><span class="mp-l">波段</span><span class="mp-v" style="color:var(--g)">$500K +50%</span></div><div class="mp"><span class="mp-l">止損</span><span class="mp-v" style="color:var(--g)">短-10% 波-12%</span></div><div class="mp"><span class="mp-l">移動止損</span><span class="mp-v" style="color:var(--g)">高點-15%</span></div></div>
+    <div class="mode-params" id="modeParams"></div>
   </div>
 
   <!-- STATS -->
   <div class="stats-row">
-    <div class="stat-box buy"><div class="stat-num" id="cntBuy" style="color:var(--g)" onclick="setFilter(&#39;buy&#39;)">0</div><div class="stat-lbl">▲ 買入訊號</div></div>
-    <div class="stat-box watch"><div class="stat-num" id="cntWatch" style="color:var(--y)" onclick="setFilter(&#39;watch&#39;)">0</div><div class="stat-lbl">◉ 觀望</div></div>
-    <div class="stat-box sell"><div class="stat-num" id="cntSell" style="color:var(--r)" onclick="setFilter(&#39;sell&#39;)">0</div><div class="stat-lbl">▼ 賣出/止損</div></div>
-    <div class="stat-box total"><div class="stat-num" id="cntAll" style="color:var(--t3)" onclick="setFilter(&#39;all&#39;)">0</div><div class="stat-lbl">全部追蹤</div></div>
+    <div class="stat-box buy"><div class="stat-num" id="cntBuy" style="color:var(--g)" onclick="setFilter('buy')">–</div><div class="stat-lbl">▲ 買入訊號</div></div>
+    <div class="stat-box watch"><div class="stat-num" id="cntWatch" style="color:var(--y)" onclick="setFilter('watch')">–</div><div class="stat-lbl">◉ 觀望</div></div>
+    <div class="stat-box sell"><div class="stat-num" id="cntSell" style="color:var(--r)" onclick="setFilter('sell')">–</div><div class="stat-lbl">▼ 賣出/止損</div></div>
+    <div class="stat-box total"><div class="stat-num" id="cntAll" style="color:var(--t3)" onclick="setFilter('all')">26</div><div class="stat-lbl">全部追蹤</div></div>
   </div>
 
   <!-- INDUSTRY RANK -->
   <div class="industry-rank">
     <div class="ir-title">// 產業強弱排名（今日）</div>
-    <div class="ir-list" id="industryRank"><div class="ir-item">
-      <span class="ir-rank">1</span>
-      <span class="ir-name">AI供應鏈</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">2</span>
-      <span class="ir-name">AI伺服器</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">3</span>
-      <span class="ir-name">AI散熱</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">4</span>
-      <span class="ir-name">IC設計</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">5</span>
-      <span class="ir-name">電力電源</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">6</span>
-      <span class="ir-name">PCB載板</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">7</span>
-      <span class="ir-name">記憶體</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">8</span>
-      <span class="ir-name">工業自動化</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">9</span>
-      <span class="ir-name">矽光子CPO</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div><div class="ir-item">
-      <span class="ir-rank">10</span>
-      <span class="ir-name">低軌衛星</span>
-      <span class="ir-score" style="color:var(--r)">0</span>
-      <span style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:10px;color:var(--t3)">0%</span>
-    </div></div>
+    <div class="ir-list" id="industryRank"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)">載入中...</span></div>
   </div>
 
   <!-- EARNINGS CALENDAR -->
-  <div class="earn-panel" id="earnPanel" style="display: block;">
+  <div class="earn-panel" id="earnPanel">
     <div class="earn-hd">📅 近期財報/法說會行事曆</div>
-    <div class="earn-list" id="earnList"><div class="earn-item" onclick="openModal(&#39;2330&#39;)"><div><span class="earn-name">台積電</span> <span class="earn-type">法說會</span></div><div class="earn-date">2026-07-17 · 21天後 · Q2財報+下季展望</div></div><div class="earn-item" onclick="openModal(&#39;3711&#39;)"><div><span class="earn-name">日月光</span> <span class="earn-type">法說會</span></div><div class="earn-date">2026-07-24 · 28天後 · Q2財報+CoWoS展望</div></div><div class="earn-item" onclick="openModal(&#39;6669&#39;)"><div><span class="earn-name">緯穎</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-07-25 · 29天後 · Q2 EPS</div></div><div class="earn-item" onclick="openModal(&#39;2454&#39;)"><div><span class="earn-name">聯發科</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-07-30 · 34天後 · Q2 EPS</div></div><div class="earn-item" onclick="openModal(&#39;2382&#39;)"><div><span class="earn-name">廣達</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-08-05 · 40天後 · Q2 EPS</div></div><div class="earn-item" onclick="openModal(&#39;2308&#39;)"><div><span class="earn-name">台達電</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-08-05 · 40天後 · Q2 EPS</div></div><div class="earn-item" onclick="openModal(&#39;3231&#39;)"><div><span class="earn-name">緯創</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-08-08 · 43天後 · Q2 EPS</div></div><div class="earn-item" onclick="openModal(&#39;3017&#39;)"><div><span class="earn-name">奇鋐</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-08-10 · 45天後 · Q2 EPS</div></div><div class="earn-item" onclick="openModal(&#39;3491&#39;)"><div><span class="earn-name">昇達科</span> <span class="earn-type">財報</span></div><div class="earn-date">2026-08-10 · 45天後 · Q2 EPS</div></div></div>
+    <div class="earn-list" id="earnList"></div>
   </div>
 
   <!-- TOP4 -->
   <div class="top4-panel">
-    <div class="top4-hd">⚡ 動態4強偵測 <div class="t4-badge">每次刷新自動更新</div><div class="t4-chg" id="t4Chg">✓ 4強未變動</div></div>
-    <div style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:9px;color:var(--g);letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:8px;">⚡ 強力4強 <span style="color:var(--t3)">六關全過・重倉進場</span><span id="strongCnt" style="margin-left:auto;color:var(--t3)">0 檔符合</span></div>
-    <div class="top4-grid" id="strongGrid"><div style="grid-column:1/-1;text-align:center;padding:16px;font-size:11px;color:var(--t3)">今日無符合六關全過的強力訊號<br><span style="font-size:10px">技術≥5 + 籌碼≥3 + 風險≤5 + 大盤非空頭 + 買入</span></div></div>
-    <div style="font-family:&#39;JetBrains Mono&#39;,monospace;font-size:9px;color:var(--y);letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:8px;">▲ 候補4強 <span style="color:var(--t3)">買入+技術≥4・輕倉試水</span><span id="backupCnt" style="margin-left:auto;color:var(--t3)">0 檔符合</span></div>
-    <div class="top4-grid" id="backupGrid"><div style="grid-column:1/-1;text-align:center;padding:16px;font-size:11px;color:var(--t3)">今日無候補訊號</div></div>
-    <div class="mkt-cond" id="mktCond"><span style="color:var(--t1)">今日市況：</span><span style="color:var(--r)">⚠️ 偏空環境，建議觀望</span>　<span style="color:var(--g)">▲買入 0</span>　<span style="color:var(--y)">◉觀望 0</span>　<span style="color:var(--r)">▼賣出 0</span></div>
+    <div class="top4-hd">⚡ 動態4強偵測 <div class="t4-badge">每次刷新自動更新</div><div class="t4-chg" id="t4Chg">尚未載入</div></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--g);letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:8px;">⚡ 強力4強 <span style="color:var(--t3)">六關全過・重倉進場</span><span id="strongCnt" style="margin-left:auto;color:var(--t3)"></span></div>
+    <div class="top4-grid" id="strongGrid">
+      <div class="t4-card"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+      <div class="t4-card"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+      <div class="t4-card"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+      <div class="t4-card"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--y);letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:8px;">▲ 候補4強 <span style="color:var(--t3)">買入+技術≥4・輕倉試水</span><span id="backupCnt" style="margin-left:auto;color:var(--t3)"></span></div>
+    <div class="top4-grid" id="backupGrid">
+      <div class="t4-card backup"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+      <div class="t4-card backup"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+      <div class="t4-card backup"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+      <div class="t4-card backup"><div class="t4-name" style="color:var(--t3)">載入中...</div></div>
+    </div>
+    <div class="mkt-cond" id="mktCond">今日市況：載入中...</div>
   </div>
 
   <!-- LOAD BAR -->
-  <div class="load-wrap show" id="loadWrap">
-    <div class="load-lbl" id="loadLbl">載入 矽創（14/26）</div>
-    <div class="load-bg"><div class="load-fill" id="loadFill" style="width: 50%; background: linear-gradient(90deg,var(--b),var(--g));"></div></div>
+  <div class="load-wrap" id="loadWrap">
+    <div class="load-lbl" id="loadLbl">初始化...</div>
+    <div class="load-bg"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
   </div>
 
   <!-- AI PANEL -->
@@ -492,28 +452,28 @@ mono{font-family:'JetBrains Mono',monospace;}
       <div class="ai-content" id="aiContent">載入數據後自動產生分析，或在下方提問。</div>
       <button class="copy-btn" onclick="copyAnalysis()">📋 複製今日分析數據 → 貼到 Claude.ai</button>
       <div class="ask-row">
-        <input class="ask-input" id="askInput" placeholder="問 AI：今天哪幾檔最值得進場？風險最低的是？週期共振最強的？">
+        <input class="ask-input" id="askInput" placeholder="問 AI：今天哪幾檔最值得進場？風險最低的是？週期共振最強的？"/>
         <button class="ask-btn" onclick="askAI()">複製問題</button>
       </div>
       <div class="quick-qs">
-        <div class="qc" onclick="quickAsk(&#39;根據目前市場模式，三層全過且風險低的有哪些？&#39;)">三層全過</div>
-        <div class="qc" onclick="quickAsk(&#39;週期共振（日線週線月線同時多頭）的有哪幾檔？&#39;)">週期共振</div>
-        <div class="qc" onclick="quickAsk(&#39;相對強弱最強、跑贏大盤最多的是哪幾檔？&#39;)">相對強弱</div>
-        <div class="qc" onclick="quickAsk(&#39;哪幾檔有突破前高的型態訊號？&#39;)">突破型態</div>
-        <div class="qc" onclick="quickAsk(&#39;目前哪幾檔應該止損出場？&#39;)">止損提醒</div>
+        <div class="qc" onclick="quickAsk('根據目前市場模式，三層全過且風險低的有哪些？')">三層全過</div>
+        <div class="qc" onclick="quickAsk('週期共振（日線週線月線同時多頭）的有哪幾檔？')">週期共振</div>
+        <div class="qc" onclick="quickAsk('相對強弱最強、跑贏大盤最多的是哪幾檔？')">相對強弱</div>
+        <div class="qc" onclick="quickAsk('哪幾檔有突破前高的型態訊號？')">突破型態</div>
+        <div class="qc" onclick="quickAsk('目前哪幾檔應該止損出場？')">止損提醒</div>
       </div>
     </div>
   </div>
 
   <!-- VIEW TOGGLE + FILTER -->
   <div class="view-bar">
-    <button class="vtab active" id="vtTab" onclick="switchView(&#39;table&#39;)">☰ 總覽表格</button>
-    <button class="vtab" id="vpTab" onclick="switchView(&#39;portfolio&#39;)">◎ 持股追蹤</button>
+    <button class="vtab active" id="vtTab" onclick="switchView('table')">☰ 總覽表格</button>
+    <button class="vtab" id="vpTab" onclick="switchView('portfolio')">◎ 持股追蹤</button>
     <div class="filter-sep"></div>
-    <button class="ftab active" id="fa" onclick="setFilter(&#39;all&#39;)">全部</button>
-    <button class="ftab fb" id="fb" onclick="setFilter(&#39;buy&#39;)">▲ 買入</button>
-    <button class="ftab fw" id="fw" onclick="setFilter(&#39;watch&#39;)">◉ 觀望</button>
-    <button class="ftab fs" id="fs" onclick="setFilter(&#39;sell&#39;)">▼ 賣出</button>
+    <button class="ftab active" id="fa" onclick="setFilter('all')">全部</button>
+    <button class="ftab fb" id="fb" onclick="setFilter('buy')">▲ 買入</button>
+    <button class="ftab fw" id="fw" onclick="setFilter('watch')">◉ 觀望</button>
+    <button class="ftab fs" id="fs" onclick="setFilter('sell')">▼ 賣出</button>
   </div>
 
   <!-- TABLE VIEW -->
@@ -538,111 +498,7 @@ mono{font-family:'JetBrains Mono',monospace;}
           <th>目標</th>
         </tr>
       </thead>
-      <tbody id="tableBody"><tr id="tr-1590" onclick="openModal(&#39;1590&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">1590</b> 亞德客</td>
-      <td><span class="chip c-ind">工業自動化</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2308" onclick="openModal(&#39;2308&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2308</b> 台達電</td>
-      <td><span class="chip c-pow">AI電源</span><span class="chip c-pow">儲能</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2313" onclick="openModal(&#39;2313&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2313</b> 華通</td>
-      <td><span class="chip c-semi">衛星PCB</span><span class="chip c-ind">SpaceX</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2327" onclick="openModal(&#39;2327&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2327</b> 國巨</td>
-      <td><span class="chip c-pow">被動元件</span><span class="chip c-hot">漲價</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2330" onclick="openModal(&#39;2330&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2330</b> 台積電</td>
-      <td><span class="chip c-ai">AI算力</span><span class="chip c-semi">晶圓代工</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2337" onclick="openModal(&#39;2337&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2337</b> 旺宏</td>
-      <td><span class="chip c-mem">NOR Flash</span><span class="chip c-mem">漲價循環</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2344" onclick="openModal(&#39;2344&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2344</b> 華邦電</td>
-      <td><span class="chip c-mem">記憶體</span><span class="chip c-mem">漲價</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2345" onclick="openModal(&#39;2345&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2345</b> 智邦</td>
-      <td><span class="chip c-ai">AI網通</span><span class="chip c-ai">CPO交換機</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2379" onclick="openModal(&#39;2379&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2379</b> 瑞昱</td>
-      <td><span class="chip c-semi">網通IC</span><span class="chip c-ai">車用</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2382" onclick="openModal(&#39;2382&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2382</b> 廣達</td>
-      <td><span class="chip c-ai">AI伺服器</span><span class="chip c-hot">散熱</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2383" onclick="openModal(&#39;2383&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2383</b> 台光電</td>
-      <td><span class="chip c-semi">高頻PCB</span><span class="chip c-ai">AI伺服器</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2408" onclick="openModal(&#39;2408&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2408</b> 南亞科</td>
-      <td><span class="chip c-mem">DRAM</span><span class="chip c-mem">DDR5</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2449" onclick="openModal(&#39;2449&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2449</b> 京元電</td>
-      <td><span class="chip c-semi">測試服務</span><span class="chip c-mem">記憶體測試</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-2454" onclick="openModal(&#39;2454&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">2454</b> 聯發科</td>
-      <td><span class="chip c-semi">IC設計</span><span class="chip c-ai">端側AI</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3017" onclick="openModal(&#39;3017&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3017</b> 奇鋐</td>
-      <td><span class="chip c-hot">液冷散熱</span><span class="chip c-ai">AI機架</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3035" onclick="openModal(&#39;3035&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3035</b> 智原</td>
-      <td><span class="chip c-semi">ASIC設計</span><span class="chip c-ai">AI晶片</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3037" onclick="openModal(&#39;3037&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3037</b> 欣興</td>
-      <td><span class="chip c-semi">ABF載板</span><span class="chip c-ai">AI封裝</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3081" onclick="openModal(&#39;3081&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3081</b> 聯亞</td>
-      <td><span class="chip c-ai">矽光子</span><span class="chip c-ai">CPO光源</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3231" onclick="openModal(&#39;3231&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3231</b> 緯創</td>
-      <td><span class="chip c-ai">AI伺服器</span><span class="chip c-semi">ODM</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3363" onclick="openModal(&#39;3363&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3363</b> 上詮</td>
-      <td><span class="chip c-ai">矽光子</span><span class="chip c-ai">台積電供應鏈</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3491" onclick="openModal(&#39;3491&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3491</b> 昇達科</td>
-      <td><span class="chip c-ind">低軌衛星</span><span class="chip c-ind">SpaceX</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-3711" onclick="openModal(&#39;3711&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">3711</b> 日月光</td>
-      <td><span class="chip c-semi">先進封裝</span><span class="chip c-ai">CoWoS</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-4958" onclick="openModal(&#39;4958&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">4958</b> 臻鼎-KY</td>
-      <td><span class="chip c-semi">高階PCB</span><span class="chip c-ai">NVIDIA認證</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-6415" onclick="openModal(&#39;6415&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">6415</b> 矽力-KY</td>
-      <td><span class="chip c-pow">電源IC</span><span class="chip c-ai">AI伺服器</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-6669" onclick="openModal(&#39;6669&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">6669</b> 緯穎</td>
-      <td><span class="chip c-ai">雲端伺服器</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr><tr id="tr-8016" onclick="openModal(&#39;8016&#39;)">
-      <td><b style="font-family:&#39;JetBrains Mono&#39;,monospace">8016</b> 矽創</td>
-      <td><span class="chip c-mem">DDR5控制IC</span></td>
-      <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
-    </tr></tbody>
+      <tbody id="tableBody"></tbody>
     </table>
   </div>
 
@@ -652,9 +508,9 @@ mono{font-family:'JetBrains Mono',monospace;}
     <div class="port-header">
       <div class="port-title">// 持股追蹤</div>
       <div class="port-add">
-        <input class="port-input" id="pCode" placeholder="代號 e.g.2330">
-        <input class="port-input" id="pPrice" placeholder="買入價" style="width:90px">
-        <input class="port-input" id="pShares" placeholder="張數" style="width:70px">
+        <input class="port-input" id="pCode" placeholder="代號 e.g.2330"/>
+        <input class="port-input" id="pPrice" placeholder="買入價" style="width:90px"/>
+        <input class="port-input" id="pShares" placeholder="張數" style="width:70px"/>
         <button class="tbtn tbtn-g" onclick="addPosition()">+ 加入</button>
       </div>
     </div>
@@ -666,7 +522,7 @@ mono{font-family:'JetBrains Mono',monospace;}
       </tr></thead>
       <tbody id="portBody"></tbody>
     </table>
-    <div id="portEmpty" style="text-align:center;padding:40px;font-family:&#39;JetBrains Mono&#39;,monospace;font-size:12px;color:var(--t3)">
+    <div id="portEmpty" style="text-align:center;padding:40px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t3)">
       尚無持倉記錄。在上方輸入代號、買入價、張數後加入。
     </div>
   </div>
@@ -1709,6 +1565,5 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 </script>
-
-
-</body></html>
+</body>
+</html>
