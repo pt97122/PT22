@@ -653,11 +653,15 @@ function setMode(m){
 
 // ── API ──
 async function apiFetch(params,timeout=15000){
-  const qs=new URLSearchParams({...params,token:FMTK}).toString();
   try{
-    const res=await fetch(`${API}?${qs}`,{signal:AbortSignal.timeout(timeout)});
+    const res=await fetch('/api/proxy',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'finmind',params:params}),
+      signal:AbortSignal.timeout(timeout)
+    });
     const j=await res.json();
-    return j.status===200?j.data:null;
+    return j&&j.status===200?j.data:null;
   }catch(e){return null;}
 }
 
