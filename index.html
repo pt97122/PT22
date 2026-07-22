@@ -1105,12 +1105,14 @@ function updateTop4(){
   var sellN=all.filter(function(e){return e.sig==='sell';}).length;
   var mkt=getMarketRegime();
   var mktColor=mkt==='bull'?'var(--g)':mkt==='neut'?'var(--y)':'var(--r)';
-  var mktTxt=mkt==='bull'?'多頭偏強，可積極操作':mkt==='neut'?'大盤震盪，謹慎選股':'⚠️ 偏空環境，建議觀望';
+  var mktTxt=mkt==='bull'?'🚀 多頭模式':mkt==='neut'?'⚖️ 震盪模式':'🛡️ 空頭模式';
+  // 自動切換市場模式
+  var autoMode=mkt==='bull'?'bull':mkt==='neut'?'neutral':'bear';
+  setMode(autoMode);
   document.getElementById('mktCond').innerHTML=
-    '<span style="color:var(--t1)">今日市況：</span><span style="color:'+mktColor+'">'+mktTxt+'</span>'+
-    '　<span style="color:var(--g)">▲買入 '+buyN+'</span>'+
-    '　<span style="color:var(--y)">◉觀望 '+watchN+'</span>'+
-    '　<span style="color:var(--r)">▼賣出 '+sellN+'</span>';
+    '<div style="font-size:16px;font-weight:900;color:'+mktColor+';margin-bottom:6px">'+mktTxt+'</div>'+
+    '<div style="font-size:12px;color:var(--t2)">建議操作：'+(mkt==='bull'?'積極追買入訊號，可重倉':mkt==='neut'?'謹慎操作，輕倉為主，等強訊號':'空手觀望為主，不宜進場')+'</div>'+
+    '<div style="font-size:11px;margin-top:6px"><span style="color:var(--g)">▲買入 '+buyN+'</span>　<span style="color:var(--y)">◉觀望 '+watchN+'</span>　<span style="color:var(--r)">▼賣出 '+sellN+'</span></div>';
 
   // 變動
   var newCodes=strongList.map(function(e){return e.code;});
