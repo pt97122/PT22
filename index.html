@@ -1107,6 +1107,7 @@ function updateTop4(){
   var mktColor=mkt==='bull'?'var(--g)':mkt==='neut'?'var(--y)':'var(--r)';
   var mktTxt=mkt==='bull'?'🚀 多頭模式':mkt==='neut'?'⚖️ 震盪模式':'🛡️ 空頭模式';
   // 自動切換市場模式（防止循環）
+  if(window._autoModeSwitching) return;
   var autoMode=mkt==='bull'?'bull':mkt==='neut'?'neutral':'bear';
   if(autoMode!==mode){
     mode=autoMode;
@@ -1117,12 +1118,15 @@ function updateTop4(){
       var match=(isBull&&autoMode==='bull')||(isNeut&&autoMode==='neutral')||(isBear&&autoMode==='bear');
       el.classList.toggle('active',match);
     });
-    renderTable();
     // 更新統計框邊框顏色
     var modeColor=autoMode==='bull'?'var(--g)':autoMode==='neutral'?'var(--y)':'var(--r)';
     document.querySelectorAll('.stat-box').forEach(function(el){
       el.style.borderColor=modeColor;
     });
+    window._autoModeSwitching=true;
+    renderTable();
+    updateSummary();
+    window._autoModeSwitching=false;
   }
   document.getElementById('mktCond').innerHTML=
     '<div style="font-size:16px;font-weight:900;color:'+mktColor+';margin-bottom:6px">'+mktTxt+'</div>'+
