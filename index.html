@@ -1110,9 +1110,18 @@ function updateTop4(){
   var autoMode=mkt==='bull'?'bull':mkt==='neut'?'neutral':'bear';
   if(autoMode!==mode){
     mode=autoMode;
-    ['bull','neutral','bear'].forEach(function(k){
-      var el=document.querySelector('.mbtn-'+k);
-      if(el) el.classList.toggle('active',k===autoMode);
+    document.querySelectorAll('[class*="mbtn-"]').forEach(function(el){
+      var isBull=el.classList.contains('mbtn-bull');
+      var isNeut=el.classList.contains('mbtn-neut');
+      var isBear=el.classList.contains('mbtn-bear');
+      var match=(isBull&&autoMode==='bull')||(isNeut&&autoMode==='neutral')||(isBear&&autoMode==='bear');
+      el.classList.toggle('active',match);
+    });
+    renderTable();
+    // 更新統計框邊框顏色
+    var modeColor=autoMode==='bull'?'var(--g)':autoMode==='neutral'?'var(--y)':'var(--r)';
+    document.querySelectorAll('.stat-box').forEach(function(el){
+      el.style.borderColor=modeColor;
     });
   }
   document.getElementById('mktCond').innerHTML=
