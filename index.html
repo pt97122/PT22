@@ -638,6 +638,7 @@ setInterval(updateClock,1000); updateClock();
 
 // ── MODE ──
 function setMode(m){
+  window._manualMode=true;
   mode=m;
   ['bull','neutral','bear'].forEach(k=>{
     document.getElementById('m'+k.slice(0,4).replace('neutral','neut'))?.classList.toggle('active',k===m);
@@ -1106,8 +1107,9 @@ function updateTop4(){
   var mkt=getMarketRegime();
   var mktColor=mkt==='bull'?'var(--g)':mkt==='neut'?'var(--y)':'var(--r)';
   var mktTxt=mkt==='bull'?'🚀 多頭模式':mkt==='neut'?'⚖️ 震盪模式':'🛡️ 空頭模式';
-  // 自動切換市場模式（防止循環）
+  // 自動切換市場模式（防止循環，手動優先）
   if(window._autoModeSwitching) return;
+  if(window._manualMode) return;
   var autoMode=mkt==='bull'?'bull':mkt==='neut'?'neutral':'bear';
   if(autoMode!==mode){
     mode=autoMode;
@@ -1268,8 +1270,8 @@ function openModal(code){
   document.getElementById('modalHead').innerHTML=`
     <div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <span style="font-family:'JetBrains Mono',monospace;color:var(--t3);font-size:11px">${s.code}.TW</span>
-        <span style="font-size:20px;font-weight:900">${s.name}</span>
+        <span style="font-family:'JetBrains Mono',monospace;color:#ffffff;font-size:16px;font-weight:700">${s.code}.TW</span>
+        <span style="font-size:22px;font-weight:900;color:#ffffff">${s.name}</span>
         <span class="sig-pill ${sC}">${sT}</span>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px">
