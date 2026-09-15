@@ -1,5 +1,12 @@
 {
-  "rewrites": [
-    { "source": "/api/proxy", "destination": "/api/proxy" }
+  "crons": [
+    {
+      "path": "/api/sendReport?type=morning",
+      "schedule": "0 0 * * 1-5"
+    },
+    {
+      "path": "/api/sendReport?type=noon",
+      "schedule": "0 1 * * 1-5"
+    }
   ]
 }
