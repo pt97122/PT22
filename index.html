@@ -723,41 +723,19 @@ async function fetchPrice(code){
   // Weekly MA (approx using 5-day periods)
   const wma20=ma(cl,100); // ~20 weeks
 
-  // ── 疊加 TWSE 即時股價 ──
-  // 盤中(9:00-13:30)：用即時價取代 FinMind 昨收
-  // 盤後/假日：FinMind 已有最新收盤，用即時當備用
+  // ── 疊加 TWSE 即時/當日股價 ──
+  // 策略：只要 TWSE 有回傳有效價格就直接用，不限盤中/盤後
+  // TWSE 收盤後 z 欄位變 '-'，改用 pz（當日收盤）
   const live=await fetchTWSEPrice(code);
   let livePrice=last.close,liveOpen=last.open,liveHigh=last.max,liveLow=last.min,liveVol=last.Trading_Volume,liveDate=last.date,isRealtime=false;
   if(live&&live.price){
-    const now=new Date();
-    const hhmm=now.getHours()*100+now.getMinutes();
-    // 台股盤中 9:00-13:35（台灣時間 = UTC+8）
-    const twHour=(now.getUTCHours()+8)%24;
-    const twMin=now.getUTCMinutes();
-    const twHHMM=twHour*100+twMin;
-    const isMarketHour=(twHHMM>=900&&twHHMM<=1340);
-    if(isMarketHour&&live.status==='open'){
-      // 盤中：用即時價
-      livePrice=live.price;
-      liveOpen=live.open||last.open;
-      liveHigh=live.high||last.max;
-      liveLow=live.low||last.min;
-      liveVol=live.volume||last.Trading_Volume;
-      isRealtime=true;
-    } else if(!isMarketHour){
-      // 盤後/假日：若 live.prevClose 比 FinMind 最新收盤日期更新，用即時
-      if(live.prevClose&&live.price&&live.price!==live.prevClose){
-        // 今天有交易（price != prevClose 表示今日有成交）
-        livePrice=live.price;
-        liveOpen=live.open||last.open;
-        liveHigh=live.high||last.max;
-        liveLow=live.low||last.min;
-        liveVol=live.volume||last.Trading_Volume;
-        isRealtime=true;
-      }
-    }
-    // 將即時收盤加入 cl 陣列以更新 MA（若是即時）
-    if(isRealtime) cl[cl.length-1]=livePrice;
+    livePrice=live.price;
+    liveOpen=live.open||last.open;
+    liveHigh=live.high||last.max;
+    liveLow=live.low||last.min;
+    liveVol=live.volume||last.Trading_Volume;
+    isRealtime=true;
+    cl[cl.length-1]=livePrice;
   }
 
   return{
