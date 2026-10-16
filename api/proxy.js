@@ -51,18 +51,25 @@ export default async function handler(req, res) {
       // data.msgArray[0] 含股票資料
       if (data.msgArray && data.msgArray.length > 0) {
         const s = data.msgArray[0];
+        // z=現價(盤中), pz=當日收盤(盤後), y=昨收
+        // 優先順序: z(盤中現價) > pz(今日收盤) > y(昨收)
+        const z = parseFloat(s.z);
+        const pz = parseFloat(s.pz);
+        const y = parseFloat(s.y);
+        const price = (!isNaN(z) && z > 0) ? z : (!isNaN(pz) && pz > 0) ? pz : y || null;
+        const isClosed = isNaN(z) || z <= 0 || s.z === '-';
         return res.status(200).json({
           ok: true,
           code: code,
           name: s.n || '',
-          price: parseFloat(s.z) || parseFloat(s.y) || null,   // 現價（收盤用 y 昨收備用）
+          price: price,
           open: parseFloat(s.o) || null,
           high: parseFloat(s.h) || null,
           low: parseFloat(s.l) || null,
-          prevClose: parseFloat(s.y) || null,
+          prevClose: y || null,
           volume: parseInt((s.v || '0').replace(/,/g, '')) || 0,
           time: s.t || '',
-          status: s.z === '-' ? 'closed' : 'open'  // '-' 表示今日未開盤/已收盤
+          status: isClosed ? 'closed' : 'open'
         });
       }
       return res.status(200).json({ ok: false, code, error: 'no data' });
@@ -85,18 +92,22 @@ export default async function handler(req, res) {
         const result = {};
         for (const s of data.msgArray) {
           const c = s.c;
+          const z = parseFloat(s.z);
+          const pz = parseFloat(s.pz);
+          const y = parseFloat(s.y);
+          const price = (!isNaN(z) && z > 0) ? z : (!isNaN(pz) && pz > 0) ? pz : y || null;
           result[c] = {
             ok: true,
             code: c,
             name: s.n || '',
-            price: parseFloat(s.z) || parseFloat(s.y) || null,
+            price: price,
             open: parseFloat(s.o) || null,
             high: parseFloat(s.h) || null,
             low: parseFloat(s.l) || null,
-            prevClose: parseFloat(s.y) || null,
+            prevClose: y || null,
             volume: parseInt((s.v || '0').replace(/,/g, '')) || 0,
             time: s.t || '',
-            status: s.z === '-' ? 'closed' : 'open'
+            status: (isNaN(z) || z <= 0 || s.z === '-') ? 'closed' : 'open'
           };
         }
         return res.status(200).json({ ok: true, stocks: result });
