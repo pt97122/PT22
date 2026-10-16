@@ -666,6 +666,20 @@ async function apiFetch(params,timeout=15000){
   }catch(e){return null;}
 }
 
+// ── FETCH TWSE 即時股價 ──
+async function fetchTWSEPrice(code){
+  try{
+    const res=await fetch('/api/proxy',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'twse_realtime',code:code})
+    });
+    const data=await res.json();
+    if(data.ok&&data.price) return data;
+    return null;
+  }catch(e){ return null; }
+}
+
 // ── FETCH PRICE ──
 async function fetchPrice(code){
   const e=new Date(),s=new Date();s.setDate(s.getDate()-120);
@@ -709,14 +723,52 @@ async function fetchPrice(code){
   // Weekly MA (approx using 5-day periods)
   const wma20=ma(cl,100); // ~20 weeks
 
+  // ── 疊加 TWSE 即時股價 ──
+  // 盤中(9:00-13:30)：用即時價取代 FinMind 昨收
+  // 盤後/假日：FinMind 已有最新收盤，用即時當備用
+  const live=await fetchTWSEPrice(code);
+  let livePrice=last.close,liveOpen=last.open,liveHigh=last.max,liveLow=last.min,liveVol=last.Trading_Volume,liveDate=last.date,isRealtime=false;
+  if(live&&live.price){
+    const now=new Date();
+    const hhmm=now.getHours()*100+now.getMinutes();
+    // 台股盤中 9:00-13:35（台灣時間 = UTC+8）
+    const twHour=(now.getUTCHours()+8)%24;
+    const twMin=now.getUTCMinutes();
+    const twHHMM=twHour*100+twMin;
+    const isMarketHour=(twHHMM>=900&&twHHMM<=1340);
+    if(isMarketHour&&live.status==='open'){
+      // 盤中：用即時價
+      livePrice=live.price;
+      liveOpen=live.open||last.open;
+      liveHigh=live.high||last.max;
+      liveLow=live.low||last.min;
+      liveVol=live.volume||last.Trading_Volume;
+      isRealtime=true;
+    } else if(!isMarketHour){
+      // 盤後/假日：若 live.prevClose 比 FinMind 最新收盤日期更新，用即時
+      if(live.prevClose&&live.price&&live.price!==live.prevClose){
+        // 今天有交易（price != prevClose 表示今日有成交）
+        livePrice=live.price;
+        liveOpen=live.open||last.open;
+        liveHigh=live.high||last.max;
+        liveLow=live.low||last.min;
+        liveVol=live.volume||last.Trading_Volume;
+        isRealtime=true;
+      }
+    }
+    // 將即時收盤加入 cl 陣列以更新 MA（若是即時）
+    if(isRealtime) cl[cl.length-1]=livePrice;
+  }
+
   return{
-    price:last.close,open:last.open,high:last.max,low:last.min,
-    vol:last.Trading_Volume,prevClose:prev?prev.close:last.close,date:last.date,
+    price:livePrice,open:liveOpen,high:liveHigh,low:liveLow,
+    vol:liveVol,prevClose:prev?prev.close:last.close,date:liveDate,
+    isRealtime,
     ma5,ma10,ma20,ma60:ma(cl,Math.min(60,cl.length)),wma20,
     rsi14:calcRSI(cl,14),...calcMACD(cl),
     bbUpper,bbLower,kd,atr,
     high20,breakout20,convergence,bottom,
-    volRatio:avgVol>0?last.Trading_Volume/avgVol:1,closes:cl,highs:hi
+    volRatio:avgVol>0?liveVol/avgVol:1,closes:cl,highs:hi
   };
 }
 
@@ -930,7 +982,7 @@ function renderTable(){
     return `<tr id="tr-${s.code}" onclick="openModal('${s.code}')" style="display:${visible?'':'none'}">
       <td><span style="font-family:'JetBrains Mono',monospace;color:#ffffff;font-size:13px;font-weight:700">${s.code}</span><br><b style="color:#ffffff;font-size:15px">${s.name}</b></td>
       <td>${s.themes.map(t=>`<span class="chip ${t.c}">${t.l}</span>`).join('')}</td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700">${d.price.toFixed(1)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700">${d.price.toFixed(1)}<br>${d.isRealtime?'<span style="font-size:9px;color:var(--g);letter-spacing:.05em">&#9679; 即時</span>':'<span style="font-size:9px;color:var(--t3)">昨收</span>'}</td>
       <td class="${pc}" style="font-family:'JetBrains Mono',monospace;font-size:12px">${ps}${pct.toFixed(2)}%<br><span style="font-size:10px;opacity:.6">${ps}${abs.toFixed(1)}</span></td>
       <td><span class="sig-pill ${sC}">${sT}</span></td>
       <td>
@@ -1085,9 +1137,14 @@ function makeT4Card(s,i,maxScore,prevList,isBackup){
 // ── 更新三層4強 ──
 var prevTop4=[];
 function updateTop4(){
-  var all=Object.entries(stockData).filter(function(e){return e[1]&&e[1].price;}).map(function(e){
-    var d=e[1],res=computeSignal(d,d.chip,d.rev);
-    return{code:e[0],name:d.stock.name,price:d.price,pct:d.price&&d.prevClose?((d.price-d.prevClose)/d.prevClose*100):0,sig:res.sig,strongScore:calcTop4Score(d)};
+  var all=[];
+  Object.entries(stockData).forEach(function(e){
+    try{
+      var d=e[1];
+      if(!d||!d.price) return;
+      var res=computeSignal(d,d.chip,d.rev);
+      all.push({code:e[0],name:d.stock?d.stock.name:e[0],price:d.price,pct:d.price&&d.prevClose?((d.price-d.prevClose)/d.prevClose*100):0,sig:res.sig,strongScore:calcTop4Score(d)});
+    }catch(err){}
   });
   var strongList=all.filter(function(e){return e.strongScore>0;}).sort(function(a,b){return b.strongScore-a.strongScore;}).slice(0,4);
   var strongCodes=strongList.map(function(e){return e.code;});
@@ -1276,6 +1333,7 @@ function openModal(code){
         <span style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700">${d.price.toFixed(1)}</span>
         <span class="${pc}" style="font-family:'JetBrains Mono',monospace;font-size:14px">${ps}${pct.toFixed(2)}%</span>
         <span style="font-size:11px;color:var(--t3)">${d.date}</span>
+        ${d.isRealtime?'<span style="font-size:11px;background:rgba(0,255,120,.12);color:var(--g);padding:2px 8px;border-radius:10px;border:1px solid rgba(0,255,120,.3)">&#9679; 即時報價</span>':'<span style="font-size:11px;color:var(--t3)">昨日收盤</span>'}
       </div>
       <div style="margin-top:6px">${s.themes.map(t=>`<span class="chip ${t.c}">${t.l}</span>`).join('')}</div>
     </div>
