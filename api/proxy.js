@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   try { body = req.body || JSON.parse(await getRawBody(req)); }
   catch(e) { body = req.body || {}; }
 
-  const { type, params, prompt } = body;
+  const { type, params, prompt, code, codes } = body;
 
   try {
     // ── FINMIND ──
@@ -33,6 +33,75 @@ export default async function handler(req, res) {
       });
       const data = await r.json();
       return res.status(200).json(data);
+    }
+
+    // ── TWSE 即時股價（單支）──
+    // input: { type:'twse_realtime', code:'2330' }
+    // 回傳: { z:現價, o:開盤, h:最高, l:最低, v:成交量, y:昨收, t:時間, n:名稱 }
+    if (type === 'twse_realtime') {
+      const ex = code && code.length === 4 ? 'tse' : 'tse';
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex}_${code}.tw&json=1&delay=0`;
+      const r = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://mis.twse.com.tw/stock/fibest.jsp'
+        }
+      });
+      const data = await r.json();
+      // data.msgArray[0] 含股票資料
+      if (data.msgArray && data.msgArray.length > 0) {
+        const s = data.msgArray[0];
+        return res.status(200).json({
+          ok: true,
+          code: code,
+          name: s.n || '',
+          price: parseFloat(s.z) || parseFloat(s.y) || null,   // 現價（收盤用 y 昨收備用）
+          open: parseFloat(s.o) || null,
+          high: parseFloat(s.h) || null,
+          low: parseFloat(s.l) || null,
+          prevClose: parseFloat(s.y) || null,
+          volume: parseInt((s.v || '0').replace(/,/g, '')) || 0,
+          time: s.t || '',
+          status: s.z === '-' ? 'closed' : 'open'  // '-' 表示今日未開盤/已收盤
+        });
+      }
+      return res.status(200).json({ ok: false, code, error: 'no data' });
+    }
+
+    // ── TWSE 即時股價（批次，最多30支）──
+    // input: { type:'twse_batch', codes:['2330','2382',...] }
+    if (type === 'twse_batch') {
+      const codeList = (codes || []).slice(0, 30);
+      const ex_ch = codeList.map(c => `tse_${c}.tw`).join('|');
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex_ch}&json=1&delay=0`;
+      const r = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://mis.twse.com.tw/stock/fibest.jsp'
+        }
+      });
+      const data = await r.json();
+      if (data.msgArray) {
+        const result = {};
+        for (const s of data.msgArray) {
+          const c = s.c;
+          result[c] = {
+            ok: true,
+            code: c,
+            name: s.n || '',
+            price: parseFloat(s.z) || parseFloat(s.y) || null,
+            open: parseFloat(s.o) || null,
+            high: parseFloat(s.h) || null,
+            low: parseFloat(s.l) || null,
+            prevClose: parseFloat(s.y) || null,
+            volume: parseInt((s.v || '0').replace(/,/g, '')) || 0,
+            time: s.t || '',
+            status: s.z === '-' ? 'closed' : 'open'
+          };
+        }
+        return res.status(200).json({ ok: true, stocks: result });
+      }
+      return res.status(200).json({ ok: false, error: 'no data' });
     }
 
     // ── CLAUDE ──
