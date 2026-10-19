@@ -1,6 +1,7 @@
 const FMTK = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiUFQuMjIiLCJlbWFpbCI6ImlvcDc0MTg1MjBAZ21haWwuY29tIn0.6Une0M6Q1fb-0mywGmr03SJN2dSnei-wlnK_SxRnRns';
 const CLAUDE_KEY = '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';
 const FM = 'https://api.finmindtrade.com/api/v4/data';
+const FUGLE_KEY = 'ODJkMjc4MTUtOWQ2ZC00NDhhLTg4ZGUtM2NiOTk3YzNmNGZjIDJkZDBkYjU0LTQ3NjktNDRjYS05NjFlLTc1Yjk0YjBkYTVmOQ==';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,78 +36,67 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
-    // ── TWSE OpenAPI 即時股價（單支）──
+    // ── Fugle 即時股價（單支）──
     // input: { type:'twse_realtime', code:'2330' }
     if (type === 'twse_realtime') {
-      const url = `https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`;
+      const url = `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`;
       const r = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'X-API-KEY': FUGLE_KEY,
           'Accept': 'application/json'
         }
       });
       const data = await r.json();
-      const stock = Array.isArray(data) ? data.find(s => s.Code === code) : null;
-      if (stock) {
-        const price = parseFloat(stock.ClosingPrice) || parseFloat(stock.OpeningPrice) || null;
-        const open = parseFloat(stock.OpeningPrice) || null;
-        const high = parseFloat(stock.HighestPrice) || null;
-        const low = parseFloat(stock.LowestPrice) || null;
-        const prevClose = parseFloat(stock.LastBestBidPrice) || price;
-        const volume = parseInt(stock.TradeVolume) || 0;
+      if (data && data.symbol) {
+        const price = data.closePrice || data.lastPrice || data.referencePrice || null;
         return res.status(200).json({
           ok: true,
           code: code,
-          name: stock.Name || '',
+          name: data.name || '',
           price: price,
-          open: open,
-          high: high,
-          low: low,
-          prevClose: prevClose,
-          volume: volume,
-          time: new Date().toISOString(),
-          status: 'open'
+          open: data.openPrice || null,
+          high: data.highPrice || null,
+          low: data.lowPrice || null,
+          prevClose: data.referencePrice || null,
+          volume: data.total?.tradeVolume || 0,
+          time: data.lastUpdated || new Date().toISOString(),
+          status: data.isTradingHalt ? 'closed' : 'open'
         });
       }
-      return res.status(200).json({ ok: false, code, error: 'no data' });
+      return res.status(200).json({ ok: false, code, error: data?.message || 'no data' });
     }
 
-    // ── TWSE OpenAPI 即時股價（批次）──
+    // ── Fugle 即時股價（批次）──
     // input: { type:'twse_batch', codes:['2330','2382',...] }
     if (type === 'twse_batch') {
       const codeList = (codes || []).slice(0, 30);
-      const url = `https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`;
-      const r = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json'
-        }
-      });
-      const data = await r.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const result = {};
-        for (const c of codeList) {
-          const stock = data.find(s => s.Code === c);
-          if (stock) {
-            const price = parseFloat(stock.ClosingPrice) || parseFloat(stock.OpeningPrice) || null;
+      const result = {};
+      await Promise.all(codeList.map(async (c) => {
+        try {
+          const url = `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${c}`;
+          const r = await fetch(url, {
+            headers: { 'X-API-KEY': FUGLE_KEY, 'Accept': 'application/json' }
+          });
+          const data = await r.json();
+          if (data && data.symbol) {
+            const price = data.closePrice || data.lastPrice || data.referencePrice || null;
             result[c] = {
               ok: true,
               code: c,
-              name: stock.Name || '',
+              name: data.name || '',
               price: price,
-              open: parseFloat(stock.OpeningPrice) || null,
-              high: parseFloat(stock.HighestPrice) || null,
-              low: parseFloat(stock.LowestPrice) || null,
-              prevClose: parseFloat(stock.LastBestBidPrice) || price,
-              volume: parseInt(stock.TradeVolume) || 0,
-              time: new Date().toISOString(),
-              status: 'open'
+              open: data.openPrice || null,
+              high: data.highPrice || null,
+              low: data.lowPrice || null,
+              prevClose: data.referencePrice || null,
+              volume: data.total?.tradeVolume || 0,
+              time: data.lastUpdated || new Date().toISOString(),
+              status: data.isTradingHalt ? 'closed' : 'open'
             };
           }
-        }
-        return res.status(200).json({ ok: true, stocks: result });
-      }
-      return res.status(200).json({ ok: false, error: 'no data' });
+        } catch(e) { /* skip */ }
+      }));
+      return res.status(200).json({ ok: true, stocks: result });
     }
 
     // ── CLAUDE ──
