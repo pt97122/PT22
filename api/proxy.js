@@ -35,79 +35,74 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
-    // ── TWSE 即時股價（單支）──
+    // ── Yahoo Finance 即時股價（單支）──
     // input: { type:'twse_realtime', code:'2330' }
-    // 回傳: { z:現價, o:開盤, h:最高, l:最低, v:成交量, y:昨收, t:時間, n:名稱 }
     if (type === 'twse_realtime') {
-      const ex = code && code.length === 4 ? 'tse' : 'tse';
-      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex}_${code}.tw&json=1&delay=0`;
+      const symbol = `${code}.TW`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`;
       const r = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://mis.twse.com.tw/stock/fibest.jsp'
+          'Accept': 'application/json'
         }
       });
       const data = await r.json();
-      // data.msgArray[0] 含股票資料
-      if (data.msgArray && data.msgArray.length > 0) {
-        const s = data.msgArray[0];
-        // z=現價(盤中), pz=當日收盤(盤後), y=昨收
-        // 優先順序: z(盤中現價) > pz(今日收盤) > y(昨收)
-        const z = parseFloat(s.z);
-        const pz = parseFloat(s.pz);
-        const y = parseFloat(s.y);
-        const price = (!isNaN(z) && z > 0) ? z : (!isNaN(pz) && pz > 0) ? pz : y || null;
-        const isClosed = isNaN(z) || z <= 0 || s.z === '-';
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta) {
+        const price = meta.regularMarketPrice || meta.previousClose || null;
+        const prevClose = meta.previousClose || null;
+        const open = meta.regularMarketOpen || null;
+        const high = meta.regularMarketDayHigh || null;
+        const low = meta.regularMarketDayLow || null;
+        const volume = meta.regularMarketVolume || 0;
+        const marketState = meta.marketState || 'CLOSED'; // REGULAR=盤中, POST=盤後, CLOSED=收盤
         return res.status(200).json({
           ok: true,
           code: code,
-          name: s.n || '',
+          name: meta.shortName || meta.longName || '',
           price: price,
-          open: parseFloat(s.o) || null,
-          high: parseFloat(s.h) || null,
-          low: parseFloat(s.l) || null,
-          prevClose: y || null,
-          volume: parseInt((s.v || '0').replace(/,/g, '')) || 0,
-          time: s.t || '',
-          status: isClosed ? 'closed' : 'open'
+          open: open,
+          high: high,
+          low: low,
+          prevClose: prevClose,
+          volume: volume,
+          time: new Date(meta.regularMarketTime * 1000).toISOString(),
+          status: marketState === 'REGULAR' ? 'open' : 'closed'
         });
       }
       return res.status(200).json({ ok: false, code, error: 'no data' });
     }
 
-    // ── TWSE 即時股價（批次，最多30支）──
+    // ── Yahoo Finance 即時股價（批次）──
     // input: { type:'twse_batch', codes:['2330','2382',...] }
     if (type === 'twse_batch') {
       const codeList = (codes || []).slice(0, 30);
-      const ex_ch = codeList.map(c => `tse_${c}.tw`).join('|');
-      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex_ch}&json=1&delay=0`;
+      const symbols = codeList.map(c => `${c}.TW`).join(',');
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
       const r = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://mis.twse.com.tw/stock/fibest.jsp'
+          'Accept': 'application/json'
         }
       });
       const data = await r.json();
-      if (data.msgArray) {
+      const quotes = data?.quoteResponse?.result || [];
+      if (quotes.length > 0) {
         const result = {};
-        for (const s of data.msgArray) {
-          const c = s.c;
-          const z = parseFloat(s.z);
-          const pz = parseFloat(s.pz);
-          const y = parseFloat(s.y);
-          const price = (!isNaN(z) && z > 0) ? z : (!isNaN(pz) && pz > 0) ? pz : y || null;
+        for (const q of quotes) {
+          const c = q.symbol.replace('.TW', '');
           result[c] = {
             ok: true,
             code: c,
-            name: s.n || '',
-            price: price,
-            open: parseFloat(s.o) || null,
-            high: parseFloat(s.h) || null,
-            low: parseFloat(s.l) || null,
-            prevClose: y || null,
-            volume: parseInt((s.v || '0').replace(/,/g, '')) || 0,
-            time: s.t || '',
-            status: (isNaN(z) || z <= 0 || s.z === '-') ? 'closed' : 'open'
+            name: q.shortName || q.longName || '',
+            price: q.regularMarketPrice || q.previousClose || null,
+            open: q.regularMarketOpen || null,
+            high: q.regularMarketDayHigh || null,
+            low: q.regularMarketDayLow || null,
+            prevClose: q.regularMarketPreviousClose || null,
+            volume: q.regularMarketVolume || 0,
+            time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000).toISOString() : '',
+            status: q.marketState === 'REGULAR' ? 'open' : 'closed'
           };
         }
         return res.status(200).json({ ok: true, stocks: result });
