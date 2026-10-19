@@ -35,11 +35,10 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
-    // ── Yahoo Finance 即時股價（單支）──
+    // ── TWSE OpenAPI 即時股價（單支）──
     // input: { type:'twse_realtime', code:'2330' }
     if (type === 'twse_realtime') {
-      const symbol = `${code}.TW`;
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`;
+      const url = `https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`;
       const r = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -47,38 +46,36 @@ export default async function handler(req, res) {
         }
       });
       const data = await r.json();
-      const meta = data?.chart?.result?.[0]?.meta;
-      if (meta) {
-        const price = meta.regularMarketPrice || meta.previousClose || null;
-        const prevClose = meta.previousClose || null;
-        const open = meta.regularMarketOpen || null;
-        const high = meta.regularMarketDayHigh || null;
-        const low = meta.regularMarketDayLow || null;
-        const volume = meta.regularMarketVolume || 0;
-        const marketState = meta.marketState || 'CLOSED'; // REGULAR=盤中, POST=盤後, CLOSED=收盤
+      const stock = Array.isArray(data) ? data.find(s => s.Code === code) : null;
+      if (stock) {
+        const price = parseFloat(stock.ClosingPrice) || parseFloat(stock.OpeningPrice) || null;
+        const open = parseFloat(stock.OpeningPrice) || null;
+        const high = parseFloat(stock.HighestPrice) || null;
+        const low = parseFloat(stock.LowestPrice) || null;
+        const prevClose = parseFloat(stock.LastBestBidPrice) || price;
+        const volume = parseInt(stock.TradeVolume) || 0;
         return res.status(200).json({
           ok: true,
           code: code,
-          name: meta.shortName || meta.longName || '',
+          name: stock.Name || '',
           price: price,
           open: open,
           high: high,
           low: low,
           prevClose: prevClose,
           volume: volume,
-          time: new Date(meta.regularMarketTime * 1000).toISOString(),
-          status: marketState === 'REGULAR' ? 'open' : 'closed'
+          time: new Date().toISOString(),
+          status: 'open'
         });
       }
       return res.status(200).json({ ok: false, code, error: 'no data' });
     }
 
-    // ── Yahoo Finance 即時股價（批次）──
+    // ── TWSE OpenAPI 即時股價（批次）──
     // input: { type:'twse_batch', codes:['2330','2382',...] }
     if (type === 'twse_batch') {
       const codeList = (codes || []).slice(0, 30);
-      const symbols = codeList.map(c => `${c}.TW`).join(',');
-      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+      const url = `https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`;
       const r = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -86,24 +83,26 @@ export default async function handler(req, res) {
         }
       });
       const data = await r.json();
-      const quotes = data?.quoteResponse?.result || [];
-      if (quotes.length > 0) {
+      if (Array.isArray(data) && data.length > 0) {
         const result = {};
-        for (const q of quotes) {
-          const c = q.symbol.replace('.TW', '');
-          result[c] = {
-            ok: true,
-            code: c,
-            name: q.shortName || q.longName || '',
-            price: q.regularMarketPrice || q.previousClose || null,
-            open: q.regularMarketOpen || null,
-            high: q.regularMarketDayHigh || null,
-            low: q.regularMarketDayLow || null,
-            prevClose: q.regularMarketPreviousClose || null,
-            volume: q.regularMarketVolume || 0,
-            time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000).toISOString() : '',
-            status: q.marketState === 'REGULAR' ? 'open' : 'closed'
-          };
+        for (const c of codeList) {
+          const stock = data.find(s => s.Code === c);
+          if (stock) {
+            const price = parseFloat(stock.ClosingPrice) || parseFloat(stock.OpeningPrice) || null;
+            result[c] = {
+              ok: true,
+              code: c,
+              name: stock.Name || '',
+              price: price,
+              open: parseFloat(stock.OpeningPrice) || null,
+              high: parseFloat(stock.HighestPrice) || null,
+              low: parseFloat(stock.LowestPrice) || null,
+              prevClose: parseFloat(stock.LastBestBidPrice) || price,
+              volume: parseInt(stock.TradeVolume) || 0,
+              time: new Date().toISOString(),
+              status: 'open'
+            };
+          }
         }
         return res.status(200).json({ ok: true, stocks: result });
       }
