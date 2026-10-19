@@ -377,6 +377,7 @@ mono{font-family:'JetBrains Mono',monospace;}
   <div class="topbar-right">
     <button class="tbtn tbtn-p" id="deepBtn" onclick="runDeep()" disabled><span id="deepIcon">◈</span> 深度</button>
     <button class="tbtn tbtn-b" id="refreshBtn" onclick="refreshAll()"><span id="ricon">↻</span> 刷新</button>
+    <button class="tbtn" id="autoRefreshBtn" onclick="toggleAutoRefresh()" style="font-size:11px;padding:5px 10px;background:rgba(0,255,120,.08);border-color:rgba(0,255,120,.3);color:var(--g)">⏱ 自動 <span id="autoRefreshLabel">關</span></button>
   </div>
 </div>
 
@@ -1612,6 +1613,60 @@ async function runDeep(){
   isDeep=false; deepDone=true;
 }
 
+// ── 自動刷新 ──
+var _autoRefreshTimer=null;
+var _autoRefreshCountdown=null;
+var _autoRefreshOn=false;
+var _autoRefreshSeconds=0;
+
+function getAutoRefreshInterval(){
+  // 台灣時間判斷
+  const now=new Date();
+  const twHour=(now.getUTCHours()+8)%24;
+  const twMin=now.getUTCMinutes();
+  const twHHMM=twHour*100+twMin;
+  // 盤中 9:00-13:35 → 30秒, 其他 → 5分鐘
+  return (twHHMM>=900&&twHHMM<=1335)?30:300;
+}
+
+function startAutoRefreshCountdown(secs){
+  _autoRefreshSeconds=secs;
+  if(_autoRefreshCountdown) clearInterval(_autoRefreshCountdown);
+  _autoRefreshCountdown=setInterval(function(){
+    _autoRefreshSeconds--;
+    const lbl=document.getElementById('autoRefreshLabel');
+    if(lbl&&_autoRefreshOn) lbl.textContent=_autoRefreshSeconds+'s';
+    if(_autoRefreshSeconds<=0){
+      clearInterval(_autoRefreshCountdown);
+      if(_autoRefreshOn&&!isRefreshing){
+        refreshAll().then(function(){
+          if(_autoRefreshOn){
+            var interval=getAutoRefreshInterval();
+            startAutoRefreshCountdown(interval);
+          }
+        });
+      }
+    }
+  },1000);
+}
+
+function toggleAutoRefresh(){
+  _autoRefreshOn=!_autoRefreshOn;
+  const btn=document.getElementById('autoRefreshBtn');
+  const lbl=document.getElementById('autoRefreshLabel');
+  if(_autoRefreshOn){
+    btn.style.background='rgba(0,255,120,.2)';
+    btn.style.borderColor='rgba(0,255,120,.6)';
+    var interval=getAutoRefreshInterval();
+    startAutoRefreshCountdown(interval);
+  } else {
+    btn.style.background='rgba(0,255,120,.08)';
+    btn.style.borderColor='rgba(0,255,120,.3)';
+    if(_autoRefreshCountdown) clearInterval(_autoRefreshCountdown);
+    if(lbl) lbl.textContent='關';
+  }
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',()=>{
   setMode('bull');
@@ -1619,6 +1674,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   refreshAll().then(function(){
     var tbl=document.getElementById('tbody');
     if(tbl) tbl.scrollIntoView({behavior:'smooth',block:'start'});
+    // 盤中自動開啟自動刷新
+    const now=new Date();
+    const twHour=(now.getUTCHours()+8)%24;
+    const twHHMM=twHour*100+now.getUTCMinutes();
+    if(twHHMM>=900&&twHHMM<=1335) toggleAutoRefresh();
   });
 });
 </script>
