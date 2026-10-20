@@ -36,67 +36,74 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
-    // ── Fugle 即時股價（單支）──
+    // ── Yahoo Finance 即時股價（單支）──
     // input: { type:'twse_realtime', code:'2330' }
     if (type === 'twse_realtime') {
-      const url = `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${code}`;
+      const symbol = `${code}.TW`;
+      const url = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${symbol}&fields=regularMarketPrice,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,regularMarketPreviousClose,shortName,marketState,regularMarketTime`;
       const r = await fetch(url, {
         headers: {
-          'X-API-KEY': FUGLE_KEY,
-          'Accept': 'application/json'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'zh-TW,zh;q=0.9'
         }
       });
       const data = await r.json();
-      if (data && data.symbol) {
-        const price = data.closePrice || data.lastPrice || data.referencePrice || null;
+      const q = data?.quoteResponse?.result?.[0];
+      if (q) {
         return res.status(200).json({
           ok: true,
           code: code,
-          name: data.name || '',
-          price: price,
-          open: data.openPrice || null,
-          high: data.highPrice || null,
-          low: data.lowPrice || null,
-          prevClose: data.referencePrice || null,
-          volume: data.total?.tradeVolume || 0,
-          time: data.lastUpdated || new Date().toISOString(),
-          status: data.isTradingHalt ? 'closed' : 'open'
+          name: q.shortName || q.longName || '',
+          price: q.regularMarketPrice || q.regularMarketPreviousClose || null,
+          open: q.regularMarketOpen || null,
+          high: q.regularMarketDayHigh || null,
+          low: q.regularMarketDayLow || null,
+          prevClose: q.regularMarketPreviousClose || null,
+          volume: q.regularMarketVolume || 0,
+          time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+          status: q.marketState === 'REGULAR' ? 'open' : 'closed'
         });
       }
-      return res.status(200).json({ ok: false, code, error: data?.message || 'no data' });
+      return res.status(200).json({ ok: false, code, error: 'no data' });
     }
 
-    // ── Fugle 即時股價（批次）──
+    // ── Yahoo Finance 即時股價（批次）──
     // input: { type:'twse_batch', codes:['2330','2382',...] }
     if (type === 'twse_batch') {
       const codeList = (codes || []).slice(0, 30);
-      const result = {};
-      await Promise.all(codeList.map(async (c) => {
-        try {
-          const url = `https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${c}`;
-          const r = await fetch(url, {
-            headers: { 'X-API-KEY': FUGLE_KEY, 'Accept': 'application/json' }
-          });
-          const data = await r.json();
-          if (data && data.symbol) {
-            const price = data.closePrice || data.lastPrice || data.referencePrice || null;
-            result[c] = {
-              ok: true,
-              code: c,
-              name: data.name || '',
-              price: price,
-              open: data.openPrice || null,
-              high: data.highPrice || null,
-              low: data.lowPrice || null,
-              prevClose: data.referencePrice || null,
-              volume: data.total?.tradeVolume || 0,
-              time: data.lastUpdated || new Date().toISOString(),
-              status: data.isTradingHalt ? 'closed' : 'open'
-            };
-          }
-        } catch(e) { /* skip */ }
-      }));
-      return res.status(200).json({ ok: true, stocks: result });
+      const symbols = codeList.map(c => `${c}.TW`).join(',');
+      const url = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${symbols}&fields=regularMarketPrice,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,regularMarketPreviousClose,shortName,marketState,regularMarketTime`;
+      const r = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'zh-TW,zh;q=0.9'
+        }
+      });
+      const data = await r.json();
+      const quotes = data?.quoteResponse?.result || [];
+      if (quotes.length > 0) {
+        const result = {};
+        for (const q of quotes) {
+          const c = q.symbol.replace('.TW','');
+          result[c] = {
+            ok: true,
+            code: c,
+            name: q.shortName || q.longName || '',
+            price: q.regularMarketPrice || q.regularMarketPreviousClose || null,
+            open: q.regularMarketOpen || null,
+            high: q.regularMarketDayHigh || null,
+            low: q.regularMarketDayLow || null,
+            prevClose: q.regularMarketPreviousClose || null,
+            volume: q.regularMarketVolume || 0,
+            time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+            status: q.marketState === 'REGULAR' ? 'open' : 'closed'
+          };
+        }
+        return res.status(200).json({ ok: true, stocks: result });
+      }
+      return res.status(200).json({ ok: false, error: 'no data' });
     }
 
     // ── CLAUDE ──
