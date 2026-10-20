@@ -1626,7 +1626,7 @@ function getAutoRefreshInterval(){
   const twMin=now.getUTCMinutes();
   const twHHMM=twHour*100+twMin;
   // 盤中 9:00-13:35 → 30秒, 其他 → 5分鐘
-  return (twHHMM>=900&&twHHMM<=1335)?30:300;
+  return (twHHMM>=900&&twHHMM<=1335)?900:1800;
 }
 
 function startAutoRefreshCountdown(secs){
