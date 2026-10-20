@@ -1,7 +1,7 @@
 const FMTK = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiUFQuMjIiLCJlbWFpbCI6ImlvcDc0MTg1MjBAZ21haWwuY29tIn0.6Une0M6Q1fb-0mywGmr03SJN2dSnei-wlnK_SxRnRns';
 const CLAUDE_KEY = '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';
 const FM = 'https://api.finmindtrade.com/api/v4/data';
-const FUGLE_KEY = 'ODJkMjc4MTUtOWQ2ZC00NDhhLTg4ZGUtM2NiOTk3YzNmNGZjIDJkZDBkYjU0LTQ3NjktNDRjYS05NjFlLTc1Yjk0YjBkYTVmOQ==';
+const FUGLE_KEY = '8248219c-73d7-45c2-b0d1-d2d02b1de9b4';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
