@@ -40,29 +40,28 @@ export default async function handler(req, res) {
     // input: { type:'twse_realtime', code:'2330' }
     if (type === 'twse_realtime') {
       const symbol = `${code}.TW`;
-      const url = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${symbol}&fields=regularMarketPrice,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,regularMarketPreviousClose,shortName,marketState,regularMarketTime`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`;
       const r = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'Accept-Language': 'zh-TW,zh;q=0.9'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
         }
       });
       const data = await r.json();
-      const q = data?.quoteResponse?.result?.[0];
-      if (q) {
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta) {
         return res.status(200).json({
           ok: true,
           code: code,
-          name: q.shortName || q.longName || '',
-          price: q.regularMarketPrice || q.regularMarketPreviousClose || null,
-          open: q.regularMarketOpen || null,
-          high: q.regularMarketDayHigh || null,
-          low: q.regularMarketDayLow || null,
-          prevClose: q.regularMarketPreviousClose || null,
-          volume: q.regularMarketVolume || 0,
-          time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
-          status: q.marketState === 'REGULAR' ? 'open' : 'closed'
+          name: meta.shortName || meta.longName || '',
+          price: meta.regularMarketPrice || meta.previousClose || null,
+          open: meta.regularMarketOpen || null,
+          high: meta.regularMarketDayHigh || null,
+          low: meta.regularMarketDayLow || null,
+          prevClose: meta.previousClose || null,
+          volume: meta.regularMarketVolume || 0,
+          time: new Date(meta.regularMarketTime * 1000).toISOString(),
+          status: meta.marketState === 'REGULAR' ? 'open' : 'closed'
         });
       }
       return res.status(200).json({ ok: false, code, error: 'no data' });
@@ -73,12 +72,11 @@ export default async function handler(req, res) {
     if (type === 'twse_batch') {
       const codeList = (codes || []).slice(0, 30);
       const symbols = codeList.map(c => `${c}.TW`).join(',');
-      const url = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${symbols}&fields=regularMarketPrice,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,regularMarketPreviousClose,shortName,marketState,regularMarketTime`;
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
       const r = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'Accept-Language': 'zh-TW,zh;q=0.9'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
         }
       });
       const data = await r.json();
