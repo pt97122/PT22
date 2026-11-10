@@ -159,6 +159,8 @@ mono{font-family:'JetBrains Mono',monospace;}
 .sp-buy{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.3);color:var(--g);}
 .sp-watch{background:rgba(255,204,0,.07);border:1px solid rgba(255,204,0,.28);color:var(--y);}
 .sp-sell{background:rgba(255,34,68,.08);border:1px solid rgba(255,34,68,.28);color:var(--r);}
+.sp-bounce{background:rgba(255,160,0,.15);border:1px solid rgba(255,160,0,.5);color:#ffa500;box-shadow:0 0 10px rgba(255,160,0,.3);animation:pulse-bounce 1.5s ease-in-out infinite;}
+@keyframes pulse-bounce{0%,100%{box-shadow:0 0 8px rgba(255,160,0,.3);}50%{box-shadow:0 0 16px rgba(255,160,0,.6);}}
 .sp-load{background:rgba(58,102,136,.08);border:1px solid rgba(58,102,136,.25);color:var(--t3);}
 
 /* score bar inline */
@@ -394,12 +396,17 @@ mono{font-family:'JetBrains Mono',monospace;}
     <div class="mode-params" id="modeParams"></div>
   </div>
 
+  <!-- 大盤溫度計 -->
+  <div id="thermometerPanel" style="margin:0 0 10px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;">
+    <div id="thermometer" style="font-size:12px;color:var(--t3)">大盤資料載入中…</div>
+  </div>
+
   <!-- STATS -->
   <div class="stats-row">
     <div class="stat-box buy"><div class="stat-num" id="cntBuy" style="color:var(--g)" onclick="setFilter('buy')">–</div><div class="stat-lbl">▲ 買入訊號</div></div>
     <div class="stat-box watch"><div class="stat-num" id="cntWatch" style="color:var(--y)" onclick="setFilter('watch')">–</div><div class="stat-lbl">◉ 觀望</div></div>
     <div class="stat-box sell"><div class="stat-num" id="cntSell" style="color:var(--r)" onclick="setFilter('sell')">–</div><div class="stat-lbl">▼ 賣出/止損</div></div>
-    <div class="stat-box total"><div class="stat-num" id="cntAll" style="color:var(--t3)" onclick="setFilter('all')">26</div><div class="stat-lbl">全部追蹤</div></div>
+    <div class="stat-box total"><div class="stat-num" id="cntAll" style="color:var(--t3)" onclick="setFilter('all')">28</div><div class="stat-lbl">全部追蹤</div></div>
   </div>
 
   <!-- INDUSTRY RANK -->
@@ -618,9 +625,16 @@ const STOCKS=[
    industry:'低軌衛星PCB',upstream:'銅箔、玻纖布',downstream:'SpaceX、NVIDIA',competitor:'臻鼎-KY',catalyst:'SpaceX合作10年+'},
   {code:'4958',name:'臻鼎-KY',themes:[{c:'c-semi',l:'高階PCB'},{c:'c-ai',l:'NVIDIA認證'}],isShort:true,isSwing:true,
    industry:'PCB/FPC',upstream:'銅箔基板',downstream:'NVIDIA MGX、Apple',competitor:'欣興、南電',catalyst:'NVIDIA MGX背板'},
+  // ── ETF ──
+  {code:'0050',name:'元大台灣50',themes:[{c:'c-ai',l:'大盤ETF'}],isShort:false,isSwing:true,isETF:true,
+   industry:'ETF',upstream:'成份股',downstream:'長期投資人',competitor:'00692',catalyst:'大盤超跌反彈'},
+  {code:'00631L',name:'富邦台灣正2',themes:[{c:'c-ai',l:'2倍做多ETF'}],isShort:false,isSwing:true,isETF:true,
+   industry:'槓桿ETF',upstream:'台指期',downstream:'短線交易者',competitor:'00632R',catalyst:'大盤大幅反彈'},
 ];
 
 let stockData={}, portfolio=[], isRefreshing=false, isDeep=false, deepDone=false, currentFilter='all', currentView='table';
+// 大盤溫度計資料
+var marketIndex={price:null,prevClose:null,rsi14:null,ma20:null,ma60:null,drop10d:null,loaded:false};
 
 // Load portfolio from localStorage
 try{ portfolio=JSON.parse(localStorage.getItem('pt22_portfolio')||'[]'); }catch(e){ portfolio=[]; }
@@ -679,6 +693,99 @@ async function fetchTWSEPrice(code){
     if(data.ok&&data.price) return data;
     return null;
   }catch(e){ return null; }
+}
+
+// ── FETCH 大盤溫度計 (0050) ──
+async function fetchMarketIndex(){
+  try{
+    const e=new Date(),s=new Date();s.setDate(s.getDate()-120);
+    const fmt=d=>d.toISOString().split('T')[0];
+    const rows=await apiFetch({dataset:'TaiwanStockPrice',data_id:'0050',start_date:fmt(s),end_date:fmt(e)});
+    if(!rows?.length){marketIndex.loaded=true;updateThermometer();return;}
+    const sorted=rows.sort((a,b)=>a.date.localeCompare(b.date));
+    const cl=sorted.map(r=>r.close).filter(v=>v>0);
+    if(cl.length<10){marketIndex.loaded=true;updateThermometer();return;}
+    const ma=(arr,n)=>arr.length<n?null:arr.slice(-n).reduce((s,v)=>s+v,0)/n;
+    const last=sorted[sorted.length-1];
+    const prev=sorted[sorted.length-2];
+    // 10日最高收盤 → 計算近10日跌幅
+    const cl10=cl.slice(-10);
+    const high10=Math.max(...cl10);
+    const drop10d=high10>0?((cl[cl.length-1]-high10)/high10*100):0;
+    // 疊加即時報價
+    const live=await fetchTWSEPrice('0050');
+    let livePrice=last.close;
+    if(live&&live.price) livePrice=live.price;
+    marketIndex={
+      price:livePrice,
+      prevClose:prev?prev.close:last.close,
+      rsi14:calcRSI(cl,14),
+      ma20:ma(cl,20),
+      ma60:ma(cl,Math.min(60,cl.length)),
+      ma5:ma(cl,5),
+      drop10d,
+      pct:prev&&prev.close>0?((livePrice-prev.close)/prev.close*100):0,
+      loaded:true
+    };
+    updateThermometer();
+    renderTable();
+    updateSummary();
+  }catch(e){marketIndex.loaded=true;updateThermometer();}
+}
+
+// ── 大盤溫度計 UI ──
+function updateThermometer(){
+  const el=document.getElementById('thermometer');
+  if(!el) return;
+  const m=marketIndex;
+  if(!m.loaded||!m.price){
+    el.innerHTML='<span style="color:var(--t3);font-size:12px">大盤資料載入中…</span>';
+    return;
+  }
+  // 溫度：RSI + 均線 + 跌幅
+  let temp='normal',tempTxt='正常',tempColor='var(--y)',tempIcon='🌡️';
+  const rsi=m.rsi14||50;
+  const aboveMa20=m.ma20&&m.price>m.ma20;
+  const aboveMa60=m.ma60&&m.price>m.ma60;
+  const oversold=m.drop10d!=null&&m.drop10d<-8&&rsi<40;
+  const hot=rsi>70&&aboveMa20&&aboveMa60;
+  if(oversold){temp='panic';tempTxt='恐慌超跌';tempColor='var(--r)';tempIcon='🔴';}
+  else if(rsi<45&&!aboveMa20){temp='cold';tempTxt='偏冷';tempColor='#ff9966';tempIcon='🟠';}
+  else if(hot){temp='hot';tempTxt='過熱';tempColor='var(--r)';tempIcon='🔥';}
+  else if(aboveMa20&&aboveMa60){temp='warm';tempTxt='偏多';tempColor='var(--g)';tempIcon='🟢';}
+  const pctTxt=(m.pct>=0?'+':'')+m.pct.toFixed(2)+'%';
+  const pctColor=m.pct>0?'var(--g)':m.pct<0?'var(--r)':'var(--t3)';
+  // 超跌反彈提示
+  let bounceAlert='';
+  if(oversold){
+    bounceAlert=`<div style="margin-top:6px;padding:5px 10px;background:rgba(255,80,80,.12);border:1px solid rgba(255,80,80,.4);border-radius:8px;font-size:11px;color:var(--r)">
+      ⚡ 超跌反彈機會！近10日跌${Math.abs(m.drop10d).toFixed(1)}%，RSI ${rsi.toFixed(0)}，可留意0050/正二試水位（輕倉30%，止損更緊）
+    </div>`;
+  }
+  const ma20Txt=m.ma20?m.ma20.toFixed(2):'–';
+  const ma60Txt=m.ma60?m.ma60.toFixed(2):'–';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${tempIcon}</span>
+        <div>
+          <div style="font-size:11px;color:var(--t3)">大盤溫度計</div>
+          <div style="font-size:14px;font-weight:900;color:${tempColor}">${tempTxt}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--t1)">${m.price.toFixed(2)}</span>
+        <span style="font-size:12px;color:${pctColor};font-family:'JetBrains Mono',monospace">${pctTxt}</span>
+        <span style="font-size:10px;color:var(--t3)">0050</span>
+      </div>
+      <div style="font-size:11px;color:var(--t3);display:flex;gap:10px">
+        <span>RSI <span style="color:${rsi>70?'var(--r)':rsi<40?'var(--y)':'var(--g)'};font-weight:700">${rsi.toFixed(0)}</span></span>
+        <span>MA20 <span style="color:${aboveMa20?'var(--g)':'var(--r)'}">${aboveMa20?'↑':'↓'}${ma20Txt}</span></span>
+        <span>MA60 <span style="color:${aboveMa60?'var(--g)':'var(--r)'}">${aboveMa60?'↑':'↓'}${ma60Txt}</span></span>
+        ${m.drop10d!=null?`<span>10日 <span style="color:${m.drop10d<-5?'var(--r)':'var(--t3)'}">${m.drop10d.toFixed(1)}%</span></span>`:''}
+      </div>
+    </div>
+    ${bounceAlert}`;
 }
 
 // ── FETCH PRICE ──
@@ -857,9 +964,24 @@ function calcATR(rows,p=14){
 function fmtN(n){if(n==null)return'–';const a=Math.abs(n),s=n>0?'+':n<0?'-':'';return s+(a>=10000?(a/10000).toFixed(1)+'萬':a.toLocaleString());}
 
 // ── SIGNAL ENGINE ──
-function computeSignal(p,chip,rev){
-  if(!p) return{sig:'watch',strong:false,tech:[],chipConds:[],fundConds:[],patConds:[],techScore:0,chipScore:0,fundScore:0,patScore:0,riskScore:5};
+function computeSignal(p,chip,rev,stockObj){
+  if(!p) return{sig:'watch',strong:false,tech:[],chipConds:[],fundConds:[],patConds:[],techScore:0,chipScore:0,fundScore:0,patScore:0,riskScore:5,isETF:false,isBounce:false};
   const md=MODES[mode];
+  const isETF=!!(stockObj&&stockObj.isETF)||(p.stock&&p.stock.isETF);
+
+  // ── 超跌反彈偵測 ──
+  let etfDrop10=null;
+  if(isETF&&p.closes&&p.closes.length>=10){
+    const cl=p.closes;
+    const high10=Math.max(...cl.slice(-10));
+    etfDrop10=high10>0?((cl[cl.length-1]-high10)/high10*100):0;
+  }
+  const mktDrop=marketIndex.drop10d;
+  const mktRsi=marketIndex.rsi14||50;
+  const oversoldBounce=isETF&&(
+    (etfDrop10!=null&&etfDrop10<-8&&(p.rsi14||50)<40) ||
+    (mktDrop!=null&&mktDrop<-8&&mktRsi<40)
+  );
 
   // TECHNICAL (8 conditions)
   const tech=[
@@ -873,8 +995,10 @@ function computeSignal(p,chip,rev){
     {l:`乖離率合理 -3%~+8%`,pass:!!(p.ma20&&((p.price-p.ma20)/p.ma20*100)>=-3&&((p.price-p.ma20)/p.ma20*100)<=8),val:p.ma20?((p.price-p.ma20)/p.ma20*100).toFixed(1)+'%':'–'},
   ];
 
-  // CHIP (5 conditions)
-  const chipConds=[
+  // CHIP (5 conditions) - ETF不看籌碼
+  const chipConds=isETF?[
+    {l:'ETF不追蹤三大法人',pass:null},{l:'–',pass:null},{l:'–',pass:null},{l:'–',pass:null},{l:'–',pass:null}
+  ]:[
     {l:`外資連續${md.chipDays}日買超`,pass:chip?.foreignNet===true,val:chip?fmtN(chip.foreignTotal):'–'},
     {l:`投信連續${md.chipDays}日買超`,pass:chip?.itNet===true,val:chip?fmtN(chip.itTotal):'–'},
     {l:'融券餘額下降',pass:chip?.shortDown===true,val:chip?.shortDown==null?'–':chip.shortDown?'↓減':'持平'},
@@ -882,8 +1006,10 @@ function computeSignal(p,chip,rev){
     {l:'主力5日合計淨買',pass:!!(chip&&(chip.foreignTotal+chip.itTotal)>0),val:chip?fmtN(chip.foreignTotal+chip.itTotal):'–'},
   ];
 
-  // FUNDAMENTAL (3)
-  const fundConds=[
+  // FUNDAMENTAL (3) - ETF不看營收
+  const fundConds=isETF?[
+    {l:'ETF不追蹤月營收',pass:null},{l:'–',pass:null},{l:'–',pass:null}
+  ]:[
     {l:`月營收YoY≥+${md.revYoY}% (${rev?.yoy!=null?rev.yoy.toFixed(1)+'%':'–'})`,pass:!!(rev?.yoy>=md.revYoY)},
     {l:`連續${rev?.consecutive||0}月成長`,pass:!!(rev?.consecutive>=2)},
     {l:`月增率MoM (${rev?.mom!=null?(rev.mom>0?'+':'')+rev.mom.toFixed(1)+'%':'–'})`,pass:!!(rev?.mom>0)},
@@ -897,8 +1023,8 @@ function computeSignal(p,chip,rev){
   ];
 
   const tS=tech.filter(c=>c.pass).length;
-  const cS=chipConds.filter(c=>c.pass).length;
-  const fS=fundConds.filter(c=>c.pass).length;
+  const cS=isETF?3:chipConds.filter(c=>c.pass).length;
+  const fS=isETF?1:fundConds.filter(c=>c.pass).length;
   const pS=patConds.filter(c=>c.pass).length;
 
   // RISK SCORE (1-10)
@@ -908,7 +1034,7 @@ function computeSignal(p,chip,rev){
   if(p.rsi14<40) risk-=1;
   if(p.ma20&&((p.price-p.ma20)/p.ma20*100)>8) risk+=2;
   if(p.ma20&&((p.price-p.ma20)/p.ma20*100)<-5) risk+=1;
-  if(chip?.marginUp) risk+=1;
+  if(!isETF&&chip?.marginUp) risk+=1;
   if(p.volRatio>3) risk+=1;
   if(tS>=4) risk-=1;
   if(cS>=3) risk-=1;
@@ -916,25 +1042,59 @@ function computeSignal(p,chip,rev){
 
   // SIGNAL
   const rsiOB=p.rsi14>82,deepBelow=p.ma20&&p.price<p.ma20*0.92;
-  let sig,strong=false;
-  if(rsiOB||deepBelow||(p.macdState==='bear'&&tS<=1)){sig='sell';}
-  else if(tS>=md.strongT&&cS>=md.strongC&&fS>=md.strongF&&risk<=5){sig='buy';strong=true;}
-  else if(tS>=md.techMin&&(cS>=md.chipMin||fS>=md.fundMin)){sig='buy';}
-  else if(tS>=md.techMin-1||(tS>=1&&(cS>=1||fS>=1))){sig='watch';}
-  else{sig='sell';}
+  let sig,strong=false,isBounce=false;
+  if(oversoldBounce){
+    // 超跌反彈模式：ETF大跌後試水位
+    sig='buy'; strong=false; isBounce=true;
+  } else if(rsiOB||deepBelow||(p.macdState==='bear'&&tS<=1)){
+    sig='sell';
+  } else if(isETF){
+    // ETF只看技術面
+    if(tS>=5){sig='buy';strong=true;}
+    else if(tS>=3){sig='buy';}
+    else if(tS>=2){sig='watch';}
+    else{sig='sell';}
+  } else {
+    if(tS>=md.strongT&&cS>=md.strongC&&fS>=md.strongF&&risk<=5){sig='buy';strong=true;}
+    else if(tS>=md.techMin&&(cS>=md.chipMin||fS>=md.fundMin)){sig='buy';}
+    else if(tS>=md.techMin-1||(tS>=1&&(cS>=1||fS>=1))){sig='watch';}
+    else{sig='sell';}
+  }
 
   // CYCLE RESONANCE: weekly proxy
   const weeklyBull=p.wma20&&p.price>p.wma20;
   const cycleScore=(p.ma60&&p.price>p.ma60?1:0)+(weeklyBull?1:0)+(p.ma20&&p.price>p.ma20?1:0);
 
-  // RELATIVE STRENGTH (vs TAIEX proxy - use MA alignment as proxy)
-  const rsScore=tS>=4?'強':'中';
+  // RELATIVE STRENGTH vs 0050（改良版）
+  let rsScore='中';
+  if(marketIndex.loaded&&marketIndex.price&&marketIndex.prevClose&&p.prevClose>0){
+    const idx0050Pct=(marketIndex.price-marketIndex.prevClose)/marketIndex.prevClose;
+    const stockPct=(p.price-p.prevClose)/p.prevClose;
+    if(Math.abs(idx0050Pct)>0.001){
+      const rsRatio=stockPct/Math.abs(idx0050Pct);
+      if(rsRatio>1.5) rsScore='超強';
+      else if(rsRatio>1.0) rsScore='強';
+      else if(rsRatio>0.3) rsScore='中';
+      else rsScore='弱';
+    } else {
+      rsScore=tS>=4?'強':'中';
+    }
+  } else {
+    rsScore=tS>=4?'強':'中';
+  }
 
   // ENTRY RANGE
-  const entryLow=p.ma20?Math.max(p.ma20,(p.price*(1-0.02))):p.price*(1-0.02);
-  const entryHigh=p.price*(1+0.005);
+  let entryLow,entryHigh;
+  if(isBounce){
+    // 超跌反彈：保守進場，止損更緊
+    entryLow=p.price*(1-0.03);
+    entryHigh=p.price*(1+0.01);
+  } else {
+    entryLow=p.ma20?Math.max(p.ma20,(p.price*(1-0.02))):p.price*(1-0.02);
+    entryHigh=p.price*(1+0.005);
+  }
 
-  return{sig,strong,tech,chipConds,fundConds,patConds,techScore:tS,chipScore:cS,fundScore:fS,patScore:pS,riskScore:risk,cycleScore,rsScore,entryLow,entryHigh};
+  return{sig,strong,tech,chipConds,fundConds,patConds,techScore:tS,chipScore:cS,fundScore:fS,patScore:pS,riskScore:risk,cycleScore,rsScore,entryLow,entryHigh,isETF,isBounce,etfDrop10};
 }
 
 // ── RENDER TABLE ──
@@ -948,11 +1108,11 @@ function renderTable(){
       <td>${s.themes.map(t=>`<span class="chip ${t.c}">${t.l}</span>`).join('')}</td>
       <td colspan="13"><span class="skel" style="width:80%;height:12px"></span></td>
     </tr>`;
-    const {sig,strong,techScore,chipScore,fundScore,patScore,riskScore,cycleScore,rsScore,entryLow,entryHigh}=computeSignal(d,d.chip,d.rev);
+    const {sig,strong,techScore,chipScore,fundScore,patScore,riskScore,cycleScore,rsScore,entryLow,entryHigh,isETF,isBounce}=computeSignal(d,d.chip,d.rev,d.stock);
     const pct=((d.price-d.prevClose)/d.prevClose*100),abs=d.price-d.prevClose;
     const pc=pct>0?'up':pct<0?'dn':'flat',ps=pct>0?'+':'';
-    const sC=sig==='buy'?(strong?'sp-strong':'sp-buy'):sig==='sell'?'sp-sell':'sp-watch';
-    const sT=sig==='buy'?(strong?'⚡強力':'▲買入'):sig==='sell'?'▼賣出':'◉觀望';
+    const sC=isBounce?'sp-bounce':sig==='buy'?(strong?'sp-strong':'sp-buy'):sig==='sell'?'sp-sell':'sp-watch';
+    const sT=isBounce?'⚡反彈':sig==='buy'?(strong?'⚡強力':'▲買入'):sig==='sell'?'▼賣出':'◉觀望';
     const rC=riskScore<=3?'rb-low':riskScore<=6?'rb-mid':'rb-high';
     const rT=riskScore<=3?`🟢低(${riskScore})`:riskScore<=6?`🟡中(${riskScore})`:`🔴高(${riskScore})`;
     const cyC=cycleScore===3?'var(--g)':cycleScore===2?'var(--y)':'var(--r)';
@@ -1021,7 +1181,7 @@ function updateIndustryRank(){
     const vals=codes.map(c=>stockData[c]).filter(Boolean);
     if(!vals.length) return{name,score:0};
     const avgScore=vals.reduce((s,d)=>{
-      const{techScore,chipScore,fundScore}=computeSignal(d,d.chip,d.rev);
+      const{techScore,chipScore,fundScore}=computeSignal(d,d.chip,d.rev,d.stock);
       return s+(techScore/8+chipScore/5+fundScore/3)/3*100;
     },0)/vals.length;
     const avgChg=vals.reduce((s,d)=>s+((d.price-d.prevClose)/d.prevClose*100),0)/vals.length;
@@ -1044,7 +1204,15 @@ function updateIndustryRank(){
 
 // ── 大盤環境判斷 ──
 function getMarketRegime(){
-  var stocks=Object.values(stockData).filter(function(d){return d&&d.price&&d.ma60;});
+  // 優先用0050資料判斷大盤
+  if(marketIndex.loaded&&marketIndex.price&&marketIndex.ma20&&marketIndex.ma60){
+    var p=marketIndex.price,m20=marketIndex.ma20,m60=marketIndex.ma60;
+    if(p>m20&&p>m60&&m20>m60) return 'bull';
+    if(p<m60) return 'bear';
+    return 'neut';
+  }
+  // fallback: 個股MA60比例
+  var stocks=Object.values(stockData).filter(function(d){return d&&d.price&&d.ma60&&(!d.stock||!d.stock.isETF);});
   if(stocks.length<5) return 'unknown';
   var above=stocks.filter(function(d){return d.price>d.ma60;}).length;
   var ratio=above/stocks.length;
@@ -1064,7 +1232,7 @@ function getCycleScore(d){
 // ── 強力4強評分 ──
 function calcTop4Score(d){
   if(!d||!d.price) return 0;
-  var res=computeSignal(d,d.chip,d.rev);
+  var res=computeSignal(d,d.chip,d.rev,d.stock);
   if(res.sig!=='buy') return 0;
   if(res.techScore<5) return 0;
   if(res.chipScore<3) return 0;
@@ -1081,7 +1249,7 @@ function calcTop4Score(d){
 // ── 候補4強評分 ──
 function calcBackupScore(d,strongCodes){
   if(!d||!d.price) return 0;
-  var res=computeSignal(d,d.chip,d.rev);
+  var res=computeSignal(d,d.chip,d.rev,d.stock);
   if(res.sig!=='buy') return 0;
   if(res.techScore<4) return 0;
   if(res.riskScore>6) return 0;
@@ -1121,7 +1289,7 @@ function updateTop4(){
     try{
       var d=e[1];
       if(!d||!d.price) return;
-      var res=computeSignal(d,d.chip,d.rev);
+      var res=computeSignal(d,d.chip,d.rev,d.stock);
       all.push({code:e[0],name:d.stock?d.stock.name:e[0],price:d.price,pct:d.price&&d.prevClose?((d.price-d.prevClose)/d.prevClose*100):0,sig:res.sig,strongScore:calcTop4Score(d)});
     }catch(err){}
   });
@@ -1164,10 +1332,24 @@ function updateTop4(){
     updateSummary();
     window._autoModeSwitching=false;
   }
+  // 超跌反彈提示
+  var bounceAlert0050='';
+  if(marketIndex.loaded&&marketIndex.drop10d!=null&&marketIndex.drop10d<-8&&(marketIndex.rsi14||50)<40){
+    bounceAlert0050='<div style="margin-top:8px;padding:5px 10px;background:rgba(255,160,0,.12);border:1px solid rgba(255,160,0,.4);border-radius:8px;font-size:11px;color:#ffa500">⚡ 大盤超跌！0050近10日跌'+Math.abs(marketIndex.drop10d).toFixed(1)+'%，RSI '+(marketIndex.rsi14||0).toFixed(0)+'，可留意0050/正二反彈（輕倉30%）</div>';
+  }
+  // 0050均線狀態建議模式
+  var modeSuggest='';
+  if(marketIndex.loaded&&marketIndex.price&&marketIndex.ma20&&marketIndex.ma60){
+    var p0050=marketIndex.price,m20x=marketIndex.ma20,m60x=marketIndex.ma60;
+    if(p0050>m20x&&m20x>m60x) modeSuggest='<span style="font-size:10px;color:var(--g);margin-left:8px">（0050多頭排列✓）</span>';
+    else if(p0050<m60x) modeSuggest='<span style="font-size:10px;color:var(--r);margin-left:8px">（0050破60MA，宜空頭模式）</span>';
+    else modeSuggest='<span style="font-size:10px;color:var(--y);margin-left:8px">（005020MA下方，宜震盪模式）</span>';
+  }
   document.getElementById('mktCond').innerHTML=
-    '<div style="font-size:16px;font-weight:900;color:'+mktColor+';margin-bottom:6px">'+mktTxt+'</div>'+
+    '<div style="font-size:16px;font-weight:900;color:'+mktColor+';margin-bottom:6px">'+mktTxt+modeSuggest+'</div>'+
     '<div style="font-size:12px;color:var(--t2)">建議操作：'+(mkt==='bull'?'積極追買入訊號，可重倉':mkt==='neut'?'謹慎操作，輕倉為主，等強訊號':'空手觀望為主，不宜進場')+'</div>'+
-    '<div style="font-size:11px;margin-top:6px"><span style="color:var(--g)">▲買入 '+buyN+'</span>　<span style="color:var(--y)">◉觀望 '+watchN+'</span>　<span style="color:var(--r)">▼賣出 '+sellN+'</span></div>';
+    '<div style="font-size:11px;margin-top:6px"><span style="color:var(--g)">▲買入 '+buyN+'</span>　<span style="color:var(--y)">◉觀望 '+watchN+'</span>　<span style="color:var(--r)">▼賣出 '+sellN+'</span></div>'+
+    bounceAlert0050;
 
   // 變動
   var newCodes=strongList.map(function(e){return e.code;});
@@ -1256,9 +1438,9 @@ function getSortedStocks(){
 
 function updateSummary(){
   const v=Object.values(stockData);
-  document.getElementById('cntBuy').textContent=v.filter(d=>{const s=computeSignal(d,d.chip,d.rev);return s.sig==='buy';}).length;
-  document.getElementById('cntWatch').textContent=v.filter(d=>{const s=computeSignal(d,d.chip,d.rev);return s.sig==='watch';}).length;
-  document.getElementById('cntSell').textContent=v.filter(d=>{const s=computeSignal(d,d.chip,d.rev);return s.sig==='sell';}).length;
+  document.getElementById('cntBuy').textContent=v.filter(d=>{const s=computeSignal(d,d.chip,d.rev,d.stock);return s.sig==='buy';}).length;
+  document.getElementById('cntWatch').textContent=v.filter(d=>{const s=computeSignal(d,d.chip,d.rev,d.stock);return s.sig==='watch';}).length;
+  document.getElementById('cntSell').textContent=v.filter(d=>{const s=computeSignal(d,d.chip,d.rev,d.stock);return s.sig==='sell';}).length;
   document.getElementById('cntAll').textContent=v.length;
   updateTop4();
   renderEarnings();
@@ -1294,12 +1476,12 @@ function openModal(code){
   const d=stockData[code];
   const s=STOCKS.find(x=>x.code===code);
   if(!d||!s) return;
-  const{sig,strong,tech,chipConds,fundConds,patConds,techScore,chipScore,fundScore,patScore,riskScore,cycleScore,entryLow,entryHigh}=computeSignal(d,d.chip,d.rev);
+  const{sig,strong,tech,chipConds,fundConds,patConds,techScore,chipScore,fundScore,patScore,riskScore,cycleScore,entryLow,entryHigh,isETF,isBounce,etfDrop10}=computeSignal(d,d.chip,d.rev,d.stock);
   const md=MODES[mode];
   const pct=((d.price-d.prevClose)/d.prevClose*100);
   const pc=pct>0?'up':pct<0?'dn':'flat',ps=pct>0?'+':'';
-  const sC=sig==='buy'?(strong?'sp-strong':'sp-buy'):sig==='sell'?'sp-sell':'sp-watch';
-  const sT=sig==='buy'?(strong?'⚡ 強力買入':'▲ 買入訊號'):sig==='sell'?'▼ 賣出/止損':'◉ 觀望';
+  const sC=isBounce?'sp-bounce':sig==='buy'?(strong?'sp-strong':'sp-buy'):sig==='sell'?'sp-sell':'sp-watch';
+  const sT=isBounce?'⚡ 超跌反彈試水位':sig==='buy'?(strong?'⚡ 強力買入':'▲ 買入訊號'):sig==='sell'?'▼ 賣出/止損':'◉ 觀望';
 
   document.getElementById('modalHead').innerHTML=`
     <div>
@@ -1375,15 +1557,16 @@ function openModal(code){
 
     <!-- ENTRY SUGGESTION -->
     <div class="m-section">
-      <div class="m-section-title">進場建議</div>
+      <div class="m-section-title">\${isBounce?'⚡ 超跌反彈進場（輕倉30%）':'進場建議'}</div>
+      \${isBounce?'<div style="margin-bottom:8px;padding:6px 10px;background:rgba(255,160,0,.1);border:1px solid rgba(255,160,0,.4);border-radius:8px;font-size:11px;color:#ffa500">⚠️ 超跌反彈模式：大盤近期大幅下跌，RSI超賣。<br>建議：<b>輕倉30%試水位</b>，確認反彈後再加倉，止損更嚴格。</div>':''}
       <div class="entry-box">
-        <div class="entry-row"><span class="entry-lbl">建議買入區間</span><span class="entry-val" style="color:var(--g)">${entryLow.toFixed(1)} ~ ${entryHigh.toFixed(1)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">不追高價格（超過此價不買）</span><span class="entry-val" style="color:var(--y)">${(d.price*1.03).toFixed(1)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">短線止損（-${md.sStop}%）</span><span class="entry-val" style="color:var(--r)">${(d.price*(1-md.sStop/100)).toFixed(1)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">波段止損（-${md.wStop}%）</span><span class="entry-val" style="color:var(--r)">${(d.price*(1-md.wStop/100)).toFixed(1)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">短線目標 +${md.sTgt}%</span><span class="entry-val" style="color:var(--g)">${(d.price*(1+md.sTgt/100)).toFixed(1)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">波段目標 +${md.wTgt}%</span><span class="entry-val" style="color:var(--g)">${(d.price*(1+md.wTgt/100)).toFixed(1)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">波段二目標 +${md.wTgt2}%</span><span class="entry-val" style="color:var(--g)">${(d.price*(1+md.wTgt2/100)).toFixed(1)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">建議買入區間</span><span class="entry-val" style="color:var(--g)">\${entryLow.toFixed(2)} ~ \${entryHigh.toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">\${isBounce?'反彈止損（-3%）':'短線止損（-'+md.sStop+'%）'}</span><span class="entry-val" style="color:var(--r)">\${isBounce?(d.price*0.97).toFixed(2):(d.price*(1-md.sStop/100)).toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">\${isBounce?'波段止損（-5%）':'波段止損（-'+md.wStop+'%）'}</span><span class="entry-val" style="color:var(--r)">\${isBounce?(d.price*0.95).toFixed(2):(d.price*(1-md.wStop/100)).toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">\${isBounce?'反彈目標1 +5%':'短線目標 +'+md.sTgt+'%'}</span><span class="entry-val" style="color:var(--g)">\${isBounce?(d.price*1.05).toFixed(2):(d.price*(1+md.sTgt/100)).toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">\${isBounce?'反彈目標2 +10%':'波段目標 +'+md.wTgt+'%'}</span><span class="entry-val" style="color:var(--g)">\${isBounce?(d.price*1.10).toFixed(2):(d.price*(1+md.wTgt/100)).toFixed(2)}</span></div>
+        \${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">不追高（超過不買）</span><span class="entry-val" style="color:var(--y)">\${(d.price*1.03).toFixed(2)}</span></div>\`}
+        \${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">波段二目標 +\${md.wTgt2}%</span><span class="entry-val" style="color:var(--g)">\${(d.price*(1+md.wTgt2/100)).toFixed(2)}</span></div>\`}
       </div>
     </div>
 
@@ -1481,7 +1664,7 @@ function renderPortfolio(){
     const sTgt=p.price*(1+md.sTgt/100);
     const wTgt=p.price*(1+md.wTgt/100);
     if(cur){totalCost+=p.price*p.shares*1000;totalVal+=cur*p.shares*1000;}
-    const{sig}=d?computeSignal(d,d.chip,d.rev):{sig:'watch'};
+    const{sig}=d?computeSignal(d,d.chip,d.rev,d.stock):{sig:'watch'};
     const sC=sig==='buy'?'sp-buy':sig==='sell'?'sp-sell':'sp-watch';
     const sT=sig==='buy'?'▲買入':sig==='sell'?'▼賣出':'◉觀望';
     return`<tr>
@@ -1519,7 +1702,7 @@ function buildCtx(){
   const v=Object.values(stockData),md=MODES[mode];
   if(!v.length) return '尚無資料';
   const det=v.map(d=>{
-    const{sig,strong,techScore,chipScore,fundScore,patScore,riskScore,cycleScore}=computeSignal(d,d.chip,d.rev);
+    const{sig,strong,techScore,chipScore,fundScore,patScore,riskScore,cycleScore}=computeSignal(d,d.chip,d.rev,d.stock);
     return`${d.stock.name}(${d.stock.code}):收${d.price?.toFixed(1)} 漲跌${(((d.price-d.prevClose)/d.prevClose)*100).toFixed(2)}% 訊號=${sig}${strong?'(強)':''} 技術=${techScore}/8 籌碼=${chipScore}/5 基本=${fundScore}/3 型態=${patScore}/3 風險=${riskScore}/10 週期共振=${cycleScore}/3 外資5日=${fmtN(d.chip?.foreignTotal)} 投信5日=${fmtN(d.chip?.itTotal)} YoY=${d.rev?.yoy!=null?d.rev.yoy.toFixed(1)+'%':'–'} MoM=${d.rev?.mom!=null?(d.rev.mom>0?'+':'')+d.rev.mom.toFixed(1)+'%':'–'}`;
   }).join('\n');
   return`【PT.22 v5｜${md.name}模式｜短線止損-${md.sStop}%｜短線目標+${md.sTgt}%｜波段目標+${md.wTgt}%】\n\n${det}`;
@@ -1566,13 +1749,20 @@ async function refreshAll(){
   document.getElementById('loadWrap').classList.add('show');
   document.getElementById('loadFill').style.background='linear-gradient(90deg,var(--b),var(--g))';
   renderSkeletonTable();
+  // 先載入大盤溫度計（0050）
+  document.getElementById('loadLbl').textContent='載入大盤指標 0050...';
+  fetchMarketIndex(); // non-blocking, updates thermometer when done
+  await sleep(300);
   let n=0;
   for(const s of STOCKS){
     document.getElementById('loadLbl').textContent=`載入 ${s.name}（${n+1}/${STOCKS.length}）`;
     document.getElementById('loadFill').style.width=(n/STOCKS.length*100)+'%';
+    // ETF只抓價格，不抓籌碼和營收
     const price=await fetchPrice(s.code);await sleep(200);
-    const chip=await fetchChip(s.code);await sleep(200);
-    const rev=await fetchRevenue(s.code);await sleep(150);
+    const chip=s.isETF?null:await fetchChip(s.code);
+    if(!s.isETF) await sleep(200);
+    const rev=s.isETF?null:await fetchRevenue(s.code);
+    if(!s.isETF) await sleep(150);
     if(price) stockData[s.code]={...price,chip,rev,stock:s};
     n++;
     if(n%3===0){renderTable();updateSummary();updateIndustryRank();}
