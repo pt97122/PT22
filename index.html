@@ -1565,8 +1565,8 @@ function openModal(code){
         <div class="entry-row"><span class="entry-lbl">${isBounce?'波段止損（-5%）':'波段止損（-'+md.wStop+'%）'}</span><span class="entry-val" style="color:var(--r)">${isBounce?(d.price*0.95).toFixed(2):(d.price*(1-md.wStop/100)).toFixed(2)}</span></div>
         <div class="entry-row"><span class="entry-lbl">${isBounce?'反彈目標1 +5%':'短線目標 +'+md.sTgt+'%'}</span><span class="entry-val" style="color:var(--g)">${isBounce?(d.price*1.05).toFixed(2):(d.price*(1+md.sTgt/100)).toFixed(2)}</span></div>
         <div class="entry-row"><span class="entry-lbl">${isBounce?'反彈目標2 +10%':'波段目標 +'+md.wTgt+'%'}</span><span class="entry-val" style="color:var(--g)">${isBounce?(d.price*1.10).toFixed(2):(d.price*(1+md.wTgt/100)).toFixed(2)}</span></div>
-        ${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">不追高（超過不買）</span><span class="entry-val" style="color:var(--y)">${(d.price*1.03).toFixed(2)}</span></div>\`}
-        ${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">波段二目標 +${md.wTgt2}%</span><span class="entry-val" style="color:var(--g)">${(d.price*(1+md.wTgt2/100)).toFixed(2)}</span></div>\`}
+        ${isBounce?'':'<div class="entry-row"><span class="entry-lbl">不追高（超過不買）</span><span class="entry-val" style="color:var(--y)">'+( d.price*1.03).toFixed(2)+'</span></div>'}
+        ${isBounce?'':'<div class="entry-row"><span class="entry-lbl">波段二目標 +'+md.wTgt2+'%</span><span class="entry-val" style="color:var(--g)">'+( d.price*(1+md.wTgt2/100)).toFixed(2)+'</span></div>'}
       </div>
     </div>
 
