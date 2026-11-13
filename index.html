@@ -1557,16 +1557,16 @@ function openModal(code){
 
     <!-- ENTRY SUGGESTION -->
     <div class="m-section">
-      <div class="m-section-title">\${isBounce?'⚡ 超跌反彈進場（輕倉30%）':'進場建議'}</div>
-      \${isBounce?'<div style="margin-bottom:8px;padding:6px 10px;background:rgba(255,160,0,.1);border:1px solid rgba(255,160,0,.4);border-radius:8px;font-size:11px;color:#ffa500">⚠️ 超跌反彈模式：大盤近期大幅下跌，RSI超賣。<br>建議：<b>輕倉30%試水位</b>，確認反彈後再加倉，止損更嚴格。</div>':''}
+      <div class="m-section-title">${isBounce?'⚡ 超跌反彈進場（輕倉30%）':'進場建議'}</div>
+      ${isBounce?'<div style="margin-bottom:8px;padding:6px 10px;background:rgba(255,160,0,.1);border:1px solid rgba(255,160,0,.4);border-radius:8px;font-size:11px;color:#ffa500">⚠️ 超跌反彈模式：大盤近期大幅下跌，RSI超賣。<br>建議：<b>輕倉30%試水位</b>，確認反彈後再加倉，止損更嚴格。</div>':''}
       <div class="entry-box">
-        <div class="entry-row"><span class="entry-lbl">建議買入區間</span><span class="entry-val" style="color:var(--g)">\${entryLow.toFixed(2)} ~ \${entryHigh.toFixed(2)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">\${isBounce?'反彈止損（-3%）':'短線止損（-'+md.sStop+'%）'}</span><span class="entry-val" style="color:var(--r)">\${isBounce?(d.price*0.97).toFixed(2):(d.price*(1-md.sStop/100)).toFixed(2)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">\${isBounce?'波段止損（-5%）':'波段止損（-'+md.wStop+'%）'}</span><span class="entry-val" style="color:var(--r)">\${isBounce?(d.price*0.95).toFixed(2):(d.price*(1-md.wStop/100)).toFixed(2)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">\${isBounce?'反彈目標1 +5%':'短線目標 +'+md.sTgt+'%'}</span><span class="entry-val" style="color:var(--g)">\${isBounce?(d.price*1.05).toFixed(2):(d.price*(1+md.sTgt/100)).toFixed(2)}</span></div>
-        <div class="entry-row"><span class="entry-lbl">\${isBounce?'反彈目標2 +10%':'波段目標 +'+md.wTgt+'%'}</span><span class="entry-val" style="color:var(--g)">\${isBounce?(d.price*1.10).toFixed(2):(d.price*(1+md.wTgt/100)).toFixed(2)}</span></div>
-        \${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">不追高（超過不買）</span><span class="entry-val" style="color:var(--y)">\${(d.price*1.03).toFixed(2)}</span></div>\`}
-        \${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">波段二目標 +\${md.wTgt2}%</span><span class="entry-val" style="color:var(--g)">\${(d.price*(1+md.wTgt2/100)).toFixed(2)}</span></div>\`}
+        <div class="entry-row"><span class="entry-lbl">建議買入區間</span><span class="entry-val" style="color:var(--g)">${entryLow.toFixed(2)} ~ ${entryHigh.toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">${isBounce?'反彈止損（-3%）':'短線止損（-'+md.sStop+'%）'}</span><span class="entry-val" style="color:var(--r)">${isBounce?(d.price*0.97).toFixed(2):(d.price*(1-md.sStop/100)).toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">${isBounce?'波段止損（-5%）':'波段止損（-'+md.wStop+'%）'}</span><span class="entry-val" style="color:var(--r)">${isBounce?(d.price*0.95).toFixed(2):(d.price*(1-md.wStop/100)).toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">${isBounce?'反彈目標1 +5%':'短線目標 +'+md.sTgt+'%'}</span><span class="entry-val" style="color:var(--g)">${isBounce?(d.price*1.05).toFixed(2):(d.price*(1+md.sTgt/100)).toFixed(2)}</span></div>
+        <div class="entry-row"><span class="entry-lbl">${isBounce?'反彈目標2 +10%':'波段目標 +'+md.wTgt+'%'}</span><span class="entry-val" style="color:var(--g)">${isBounce?(d.price*1.10).toFixed(2):(d.price*(1+md.wTgt/100)).toFixed(2)}</span></div>
+        ${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">不追高（超過不買）</span><span class="entry-val" style="color:var(--y)">${(d.price*1.03).toFixed(2)}</span></div>\`}
+        ${isBounce?'':\`<div class="entry-row"><span class="entry-lbl">波段二目標 +${md.wTgt2}%</span><span class="entry-val" style="color:var(--g)">${(d.price*(1+md.wTgt2/100)).toFixed(2)}</span></div>\`}
       </div>
     </div>
 
